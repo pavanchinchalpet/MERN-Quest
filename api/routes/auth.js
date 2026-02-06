@@ -51,7 +51,10 @@ router.post('/verify-otp', [
     .isEmail()
     .withMessage('Please enter a valid email'),
   body('otp')
-    .isLength({ min: 6, max: 6 })
+    .custom((value) => {
+      const s = String(value || '').trim();
+      return s.length === 6 && /^\d{6}$/.test(s);
+    })
     .withMessage('OTP must be 6 digits')
 ], supabaseAuth.verifyOTP);
 

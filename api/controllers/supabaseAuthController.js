@@ -402,16 +402,25 @@ const sendOTP = async (req, res) => {
 // @access  Public
 const verifyOTP = async (req, res) => {
   try {
-    const { email, otp } = req.body;
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array(), message: 'Validation failed' });
+    }
+
+    const { email } = req.body;
+    // Coerce OTP to string (frontend may send string or number)
+    const otpStr = String(req.body.otp || '').trim();
 
     console.log('🔵 [VERIFY OTP] Request received for email:', email);
-    console.log('🔵 [VERIFY OTP] OTP received:', otp);
+    console.log('🔵 [VERIFY OTP] OTP length:', otpStr.length);
 
-    // For development, allow any 6-digit OTP if it matches our dev pattern
-    if (process.env.NODE_ENV === 'development' && otp && otp.length === 6 && /^\d{6}$/.test(otp)) {
-      console.log('🔵 [VERIFY OTP] Development mode - accepting any 6-digit OTP');
+    const isDevMode = process.env.NODE_ENV === 'development' || process.env.ALLOW_DEV_OTP === 'true';
+    const isSixDigitOtp = otpStr.length === 6 && /^\d{6}$/.test(otpStr);
+
+    // For development, allow any 6-digit OTP so login works without Supabase email
+    if (isDevMode && isSixDigitOtp) {
+      console.log('🔵 [VERIFY OTP] Development mode - accepting 6-digit OTP');
       
-      // Get user profile from our users table
       const { data: userProfile, error: profileError } = await userHelpers.getUserByEmailOrUsername(email, '');
       
       if (profileError || !userProfile) {
@@ -419,7 +428,6 @@ const verifyOTP = async (req, res) => {
         return res.status(404).json({ message: 'User profile not found' });
       }
 
-      // Generate custom JWT token for our API
       const token = generateToken(userProfile.id);
       res.cookie('token', token, {
         httpOnly: true,
@@ -430,7 +438,7 @@ const verifyOTP = async (req, res) => {
 
       console.log('✅ [VERIFY OTP] Development OTP verified successfully for:', userProfile.username);
 
-      res.json({
+      return res.json({
         message: 'OTP verified successfully (development mode)',
         token: token,
         user: {
@@ -444,13 +452,12 @@ const verifyOTP = async (req, res) => {
           isAdmin: userProfile.is_admin
         }
       });
-      return;
     }
 
     // Verify OTP with Supabase Auth (production mode)
     const { data, error } = await supabase.auth.verifyOtp({
       email: email,
-      token: otp,
+      token: otpStr,
       type: 'email'
     });
 

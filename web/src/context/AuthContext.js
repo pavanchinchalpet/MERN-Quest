@@ -317,37 +317,49 @@ export const AuthProvider = ({ children }) => {
           'Content-Type': 'application/json',
         },
         credentials: 'include',
-        body: JSON.stringify({ email, otp })
+        body: JSON.stringify({ email, otp: String(otp || '').trim() })
       });
 
-      console.log('🔵 [AUTH CONTEXT] Verify OTP response status:', response.status);
-      
-      const data = await response.json();
-      console.log('🔵 [AUTH CONTEXT] Verify OTP response data:', data);
+      const data = await response.json().catch(() => ({}));
+      console.log('🔵 [AUTH CONTEXT] Verify OTP response status:', response.status, 'data:', data);
       
       if (!response.ok) {
-        throw new Error(data.message || 'OTP verification failed');
+        const message = data.message || data.error || 'OTP verification failed';
+        throw new Error(message);
       }
       
+      // Always store token when present so auth persists across refresh
+      if (data.token) {
+        localStorage.setItem('token', data.token);
+        console.log('✅ [AUTH CONTEXT] Token stored after OTP verify');
+      }
       if (data.user) {
         console.log('✅ [AUTH CONTEXT] OTP verification successful, setting user:', data.user.username);
         setUser(data.user);
-        
-        // Store token in localStorage for persistence across page refreshes
-        if (data.token) {
-          localStorage.setItem('token', data.token);
+      } else if (data.token) {
+        // Token but no user: fetch profile so we have user in state
+        try {
+          const profileRes = await fetch(`${apiUrl}/api/auth/profile`, {
+            method: 'GET',
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${data.token}`
+            }
+          });
+          if (profileRes.ok) {
+            const profileData = await profileRes.json();
+            if (profileData.user) setUser(profileData.user);
+          }
+        } catch (profileErr) {
+          console.log('🔴 [AUTH CONTEXT] Profile fetch after OTP failed:', profileErr);
         }
       }
       
       return { success: true, message: data.message || 'OTP verified successfully' };
     } catch (error) {
       console.log('🔴 [AUTH CONTEXT] Verify OTP error:', error.message);
-      let message = 'OTP verification failed';
-      
-      if (error.message) {
-        message = error.message;
-      }
-      
+      const message = error.message || 'OTP verification failed';
       setError(message);
       return { success: false, error: message };
     }

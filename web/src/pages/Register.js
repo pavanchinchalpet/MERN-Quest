@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import '../components/Login.css';
 
@@ -11,8 +11,7 @@ const Register = () => {
     confirmPassword: ''
   });
   const [loading, setLoading] = useState(false);
-  const { register, error, setError } = useAuth();
-  const navigate = useNavigate();
+  const { user, loading: authLoading, register, error, setError } = useAuth();
 
   const handleChange = (e) => {
     setFormData({
@@ -42,12 +41,16 @@ const Register = () => {
     const result = await register(formData.username, formData.email, formData.password);
     
     if (result.success) {
-      console.log('✅ [REGISTER] Registration successful, navigating to home');
-      navigate('/home');
+      console.log('✅ [REGISTER] Registration successful (redirect when user is set)');
     }
     
     setLoading(false);
   };
+
+  // If already logged in or just registered, redirect to home
+  if (user && !authLoading) {
+    return <Navigate to="/home" replace />;
+  }
 
   return (
     <div className="login-container">

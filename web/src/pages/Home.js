@@ -299,16 +299,15 @@ const Home = () => {
   }
 
   return (
-    <div style={{ 
+    <div className="home-page-wrapper" style={{ 
       minHeight: '100vh', 
       background: '#0f172a',
       padding: '0'
     }}>
       {/* Hero Section */}
-      <div style={{
+      <div className="home-hero-section" style={{
         background: 'linear-gradient(135deg, #111827 0%, #0b1220 100%)',
         color: 'white',
-        padding: '4rem 2rem',
         textAlign: 'center',
         position: 'relative',
         overflow: 'hidden'
@@ -328,9 +327,8 @@ const Home = () => {
           pointerEvents: 'none'
         }}></div>
         
-        <div style={{ maxWidth: '1200px', margin: '0 auto', position: 'relative', zIndex: 2 }}>
-          <h1 style={{ 
-            fontSize: '3rem', 
+        <div className="home-hero-inner" style={{ maxWidth: '1200px', margin: '0 auto', position: 'relative', zIndex: 2 }}>
+          <h1 className="home-hero-title" style={{ 
             fontWeight: '800', 
             marginBottom: '1rem',
             lineHeight: '1.1'

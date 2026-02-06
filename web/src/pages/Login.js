@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import '../components/Login.css';
 
@@ -14,8 +14,7 @@ const Login = () => {
   const [otpSent, setOtpSent] = useState(false);
   const [otpTimer, setOtpTimer] = useState(0);
   const [showOtpSuccess, setShowOtpSuccess] = useState(false);
-  const { login, sendOTP, verifyOTP, error, setError } = useAuth();
-  const navigate = useNavigate();
+  const { user, loading: authLoading, login, sendOTP, verifyOTP, error, setError } = useAuth();
 
   const handleChange = (e) => {
     setFormData({
@@ -36,8 +35,7 @@ const Login = () => {
     console.log('🔵 [FRONTEND LOGIN] Login result:', result);
     
     if (result.success) {
-      console.log('✅ [FRONTEND LOGIN] Login successful, navigating to home');
-      navigate('/home');
+      console.log('✅ [FRONTEND LOGIN] Login successful (redirect handled by useEffect)');
     } else {
       console.log('🔴 [FRONTEND LOGIN] Login failed:', result.error);
     }
@@ -84,7 +82,7 @@ const Login = () => {
     const result = await verifyOTP(formData.email, formData.otp);
     
     if (result.success) {
-      navigate('/home');
+      // Redirect handled by useEffect when user is set
     }
     
     setLoading(false);
@@ -113,6 +111,11 @@ const Login = () => {
     
     setLoading(false);
   };
+
+  // If already logged in, redirect to home (avoids showing login form briefly)
+  if (user && !authLoading) {
+    return <Navigate to="/home" replace />;
+  }
 
   return (
     <div className="login-container">

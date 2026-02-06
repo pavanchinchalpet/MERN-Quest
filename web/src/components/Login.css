@@ -423,6 +423,7 @@
   position: fixed;
   top: 2rem;
   right: 2rem;
+  left: auto;
   background: #f0fdf4;
   border: 1px solid #bbf7d0;
   border-radius: var(--radius-medium);
@@ -626,6 +627,47 @@
   .btn-primary,
   .btn-secondary {
     padding: 0.75rem 1.25rem;
+  }
+  
+  .otp-success-popup {
+    top: 1rem;
+    right: 1rem;
+    left: 1rem;
+    max-width: none;
+    margin: 0;
+  }
+  
+  .login-method-toggle {
+    flex-direction: column;
+  }
+  
+  .toggle-button {
+    width: 100%;
+  }
+}
+
+/* Very small devices (e.g. iPhone SE, Galaxy Fold) */
+@media (max-width: 375px) {
+  .login-container {
+    padding: 0.25rem;
+    align-items: flex-start;
+    padding-top: 1rem;
+  }
+  
+  .login-card {
+    min-height: auto;
+  }
+  
+  .login-form-panel {
+    padding: 1.25rem 0.75rem;
+  }
+  
+  .form-welcome {
+    font-size: 1.125rem;
+  }
+  
+  .form-subtitle {
+    font-size: 0.8rem;
   }
 }
 
