@@ -10,14 +10,14 @@ dotenv.config();
 
 // Import Supabase
 const supabase = require('./config/supabase');
-const { cleanupExpiredOTPs } = require('./controllers/supabaseAuthController');
 
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
     origin: process.env.CLIENT_URL || "http://localhost:3000",
-    methods: ["GET", "POST"]
+    methods: ["GET", "POST"],
+    credentials: true
   }
 });
 
@@ -96,8 +96,3 @@ const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
-
-// Cleanup expired OTPs every 5 minutes
-setInterval(() => {
-  cleanupExpiredOTPs();
-}, 5 * 60 * 1000); // 5 minutes

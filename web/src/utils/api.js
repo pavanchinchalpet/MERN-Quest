@@ -7,22 +7,10 @@ const api = axios.create({
   baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5000',
   withCredentials: true,
   headers: {
-    'Content-Type': 'application/json',
+    'Content-Type': 'application/json'
   },
-  timeout: 10000, // 10 second timeout
+  timeout: 10000 // 10 second timeout
 });
-
-// Request interceptor to add auth token (do NOT short-circuit with cached responses here)
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
 
 // Response interceptor to handle errors and cache responses
 api.interceptors.response.use(
@@ -38,7 +26,7 @@ api.interceptors.response.use(
   (error) => {
     const originalRequest = error.config;
 
-    // If unauthorized and we haven't retried yet, attempt refresh
+    // If unauthorized and we haven't retried yet, attempt refresh using HttpOnly cookie
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
       const refreshClient = axios.create({
@@ -49,18 +37,9 @@ api.interceptors.response.use(
 
       return refreshClient
         .post('/api/auth/refresh')
-        .then((res) => {
-          const accessToken = res.data?.token;
-          if (accessToken) {
-            localStorage.setItem('token', accessToken);
-            api.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
-            originalRequest.headers['Authorization'] = `Bearer ${accessToken}`;
-          }
-          return api(originalRequest);
-        })
+        .then(() => api(originalRequest))
         .catch((refreshErr) => {
-          localStorage.removeItem('token');
-          delete api.defaults.headers.common['Authorization'];
+          // If refresh fails, redirect to login
           window.location.href = '/login';
           return Promise.reject(refreshErr);
         });

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../utils/api';
+import { useAuth } from '../context/AuthContext';
 
 const Leaderboard = () => {
   const [leaderboard, setLeaderboard] = useState([]);
@@ -8,6 +9,7 @@ const Leaderboard = () => {
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState('points'); // 'points' | 'streak' | 'level'
   const [activeTab, setActiveTab] = useState('global'); // 'global' | 'friends' (placeholder)
+  const { user: currentUser } = useAuth();
 
   const loadLeaderboard = async () => {
     try {
@@ -16,16 +18,13 @@ const Leaderboard = () => {
       
       const response = await api.get('/api/user/leaderboard');
       const leaderboardData = response.data;
-      
-      // Get current user info to mark them in the leaderboard
-      const currentUser = JSON.parse(localStorage.getItem('user'));
-      
-      // Add isCurrentUser flag to the leaderboard data
+
+      // Add isCurrentUser flag to the leaderboard data using auth context
       const leaderboardWithCurrentUser = leaderboardData.map(user => ({
         ...user,
-        isCurrentUser: currentUser && user._id === currentUser.id
+        isCurrentUser: currentUser && (user._id === currentUser.id || user.id === currentUser.id)
       }));
-      
+
       setLeaderboard(leaderboardWithCurrentUser);
     } catch (error) {
       console.error('Error loading leaderboard:', error);
@@ -37,6 +36,7 @@ const Leaderboard = () => {
 
   useEffect(() => {
     loadLeaderboard();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
 
