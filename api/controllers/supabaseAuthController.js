@@ -9,18 +9,14 @@ if (!JWT_SECRET) {
   throw new Error('JWT_SECRET is required in environment variables');
 }
 
-/* ===============================
-   Helper: Generate JWT
-================================= */
+// Helper: Generate JWT
 const generateToken = (userId) => {
   return jwt.sign({ userId }, JWT_SECRET, {
     expiresIn: '7d'
   });
 };
 
-/* ===============================
-   Helper: Extract Token
-================================= */
+// Helper: Extract Token
 const extractToken = (req) => {
   return (
     req.header('Authorization')?.replace('Bearer ', '') ||
@@ -28,9 +24,7 @@ const extractToken = (req) => {
   );
 };
 
-/* ===============================
-   REGISTER
-================================= */
+// REGISTER
 const register = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -98,9 +92,7 @@ const register = async (req, res) => {
   }
 };
 
-/* ===============================
-   LOGIN
-================================= */
+// LOGIN
 const login = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -145,9 +137,7 @@ const login = async (req, res) => {
   }
 };
 
-/* ===============================
-   GET PROFILE
-================================= */
+// GET PROFILE
 const getProfile = async (req, res) => {
   try {
     const userId = req.user.userId;
@@ -163,9 +153,7 @@ const getProfile = async (req, res) => {
   }
 };
 
-/* ===============================
-   GET CURRENT USER
-================================= */
+// GET CURRENT USER
 const getCurrentUser = async (req, res) => {
   try {
     const userId = req.user?.userId;
@@ -188,17 +176,14 @@ const getCurrentUser = async (req, res) => {
   }
 };
 
-/* ===============================
-   LOGOUT
-================================= */
+// LOGOUT
 const logout = async (req, res) => {
   res.clearCookie('token');
   res.json({ message: 'Logout successful' });
 };
 
-/* ===============================
-   SEND OTP
-================================= */
+
+// SEND OTP
 const sendOTP = async (req, res) => {
   try {
     const { email } = req.body;
@@ -226,9 +211,7 @@ const sendOTP = async (req, res) => {
   }
 };
 
-/* ===============================
-   VERIFY OTP
-================================= */
+// VERIFY OTP
 const verifyOTP = async (req, res) => {
   try {
     const { email, otp } = req.body;
@@ -264,9 +247,7 @@ const verifyOTP = async (req, res) => {
   }
 };
 
-/* ===============================
-   REQUEST PASSWORD RESET
-================================= */
+// REQUEST PASSWORD RESET
 const requestPasswordReset = async (req, res) => {
   try {
     const { email } = req.body;
@@ -284,9 +265,7 @@ const requestPasswordReset = async (req, res) => {
   }
 };
 
-/* ===============================
-   RESET PASSWORD (AFTER EMAIL LINK)
-================================= */
+// RESET PASSWORD (AFTER EMAIL LINK)
 const resetPassword = async (req, res) => {
   try {
     const { password } = req.body;
@@ -304,9 +283,7 @@ const resetPassword = async (req, res) => {
   }
 };
 
-/* ===============================
-   REFRESH TOKEN
-================================= */
+// REFRESH TOKEN
 const refresh = async (req, res) => {
   try {
     const token = extractToken(req);
@@ -334,9 +311,7 @@ const refresh = async (req, res) => {
   }
 };
 
-/* ===============================
-   EXPORTS
-================================= */
+// EXPORTS
 module.exports = {
   register,
   login,

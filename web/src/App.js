@@ -6,8 +6,8 @@ import './App.css';
 // Lazy load components for better performance
 const LandingRedirect = lazy(() => import('./components/LandingRedirect'));
 const Home = lazy(() => import('./pages/Home'));
-const Login = lazy(() => import('./pages/Login'));
-const Register = lazy(() => import('./pages/Register'));
+import Login from './pages/Login';
+import Register from './pages/Register';
 const Quiz = lazy(() => import('./pages/Quiz'));
 const Profile = lazy(() => import('./pages/Profile'));
 const Leaderboard = lazy(() => import('./pages/Leaderboard'));
