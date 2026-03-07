@@ -48,7 +48,11 @@ const Register = () => {
   };
 
   // If already logged in or just registered, redirect to home
-  if (user && !authLoading) {
+  if (authLoading) {
+    return null;
+  }
+  
+  if (user) {
     return <Navigate to="/home" replace />;
   }
 

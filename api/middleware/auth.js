@@ -1,23 +1,42 @@
 const jwt = require('jsonwebtoken');
 const supabase = require('../config/supabase');
 
+const JWT_SECRET = process.env.JWT_SECRET;
+
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET must be defined in environment variables');
+}
+
+/*
+--------------------------------
+AUTH MIDDLEWARE
+--------------------------------
+*/
+
 const auth = async (req, res, next) => {
   try {
-    const token = req.cookies?.token;
+
+    // Get token from cookie OR Authorization header
+    const token =
+      req.cookies?.token ||
+      req.header('Authorization')?.replace('Bearer ', '');
 
     if (!token) {
-      return res.status(401).json({ message: 'Not authorized' });
+      return res.status(401).json({
+        message: 'Not authorized - token missing'
+      });
     }
 
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET || 'your-secret-key'
-    );
+    // Verify JWT
+    const decoded = jwt.verify(token, JWT_SECRET);
 
     if (!decoded.userId) {
-      return res.status(401).json({ message: 'Invalid token' });
+      return res.status(401).json({
+        message: 'Invalid token'
+      });
     }
 
+    // Fetch user profile
     const { data: userProfile, error } = await supabase
       .from('users')
       .select('*')
@@ -25,9 +44,12 @@ const auth = async (req, res, next) => {
       .single();
 
     if (error || !userProfile) {
-      return res.status(401).json({ message: 'User not found' });
+      return res.status(401).json({
+        message: 'User not found'
+      });
     }
 
+    // Attach user to request
     req.user = {
       userId: userProfile.id,
       email: userProfile.email,
@@ -35,19 +57,39 @@ const auth = async (req, res, next) => {
     };
 
     next();
+
   } catch (error) {
     console.error('Auth middleware error:', error);
-    res.status(401).json({ message: 'Invalid token' });
+
+    return res.status(401).json({
+      message: 'Invalid or expired token'
+    });
   }
 };
 
+/*
+--------------------------------
+ADMIN AUTH
+--------------------------------
+*/
+
 const adminAuth = async (req, res, next) => {
-  auth(req, res, () => {
-    if (!req.user.is_admin) {
-      return res.status(403).json({ message: 'Admin only' });
+
+  await auth(req, res, async () => {
+
+    if (!req.user || !req.user.is_admin) {
+      return res.status(403).json({
+        message: 'Admin access required'
+      });
     }
+
     next();
+
   });
+
 };
 
-module.exports = { auth, adminAuth };
+module.exports = {
+  auth,
+  adminAuth
+};

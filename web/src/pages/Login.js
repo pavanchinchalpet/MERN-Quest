@@ -37,7 +37,6 @@ const Login = () => {
     
     if (result.success) {
       console.log('✅ [FRONTEND LOGIN] Login successful, redirecting to /home');
-      navigate('/home');
     } else {
       console.log('🔴 [FRONTEND LOGIN] Login failed:', result.error);
     }
@@ -116,7 +115,11 @@ const Login = () => {
   };
 
   // If already logged in, redirect to home (avoids showing login form briefly)
-  if (user && !authLoading) {
+  if (authLoading) {
+    return null; // or loading spinner
+  }
+  
+  if (user) {
     return <Navigate to="/home" replace />;
   }
 
