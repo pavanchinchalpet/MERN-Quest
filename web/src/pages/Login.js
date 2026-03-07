@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Link, Navigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import '../components/Login.css';
 
 const Login = () => {
+  const navigate = useNavigate();
   const [loginMethod, setLoginMethod] = useState('password'); // 'password' or 'otp'
   const [formData, setFormData] = useState({
     email: '',
@@ -35,7 +36,8 @@ const Login = () => {
     console.log('🔵 [FRONTEND LOGIN] Login result:', result);
     
     if (result.success) {
-      console.log('✅ [FRONTEND LOGIN] Login successful (redirect handled by useEffect)');
+      console.log('✅ [FRONTEND LOGIN] Login successful, redirecting to /home');
+      navigate('/home');
     } else {
       console.log('🔴 [FRONTEND LOGIN] Login failed:', result.error);
     }
@@ -82,7 +84,8 @@ const Login = () => {
     const result = await verifyOTP(formData.email, formData.otp);
     
     if (result.success) {
-      // Redirect handled by useEffect when user is set
+      console.log('✅ [FRONTEND OTP] OTP verified, redirecting to /home');
+      navigate('/home');
     }
     
     setLoading(false);

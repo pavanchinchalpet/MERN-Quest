@@ -2,12 +2,12 @@ import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import './App.css';
+import Login from './pages/Login';
+import Register from './pages/Register';
 
 // Lazy load components for better performance
 const LandingRedirect = lazy(() => import('./components/LandingRedirect'));
 const Home = lazy(() => import('./pages/Home'));
-import Login from './pages/Login';
-import Register from './pages/Register';
 const Quiz = lazy(() => import('./pages/Quiz'));
 const Profile = lazy(() => import('./pages/Profile'));
 const Leaderboard = lazy(() => import('./pages/Leaderboard'));

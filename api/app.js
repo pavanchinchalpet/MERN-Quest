@@ -2,10 +2,11 @@ const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const dotenv = require('dotenv');
-const supabase = require('./config/supabase');
 
-// Load environment variables
+// Load environment variables BEFORE importing anything that uses them
 dotenv.config();
+
+const supabase = require('./config/supabase');
 
 const app = express();
 
@@ -43,17 +44,20 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 // Supabase connection test (non-fatal if it fails)
-if (supabase) {
-  supabase
-    .from('users')
-    .select('count')
-    .limit(1)
-    .then(() => console.log('✅ Connected to Supabase'))
-    .catch(err =>
-      console.error('❌ Supabase connection error:', err.message)
-    );
-} else {
-  console.log('⚠️ Supabase not configured - running in fallback mode');
+// Supabase connection test (non-fatal if it fails)
+if (process.env.NODE_ENV !== "test") {
+  if (supabase) {
+    supabase
+      .from('users')
+      .select('count')
+      .limit(1)
+      .then(() => console.log('✅ Connected to Supabase'))
+      .catch(err =>
+        console.error('❌ Supabase connection error:', err.message)
+      );
+  } else {
+    console.log('⚠️ Supabase not configured - running in fallback mode');
+  }
 }
 
 // Routes
