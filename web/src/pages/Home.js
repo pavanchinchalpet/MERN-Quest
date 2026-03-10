@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
-import { SkeletonCard, SkeletonStat } from '../components/SkeletonLoader';
 
 const QuickStatCard = React.memo(({ label, value, emoji }) => (
   <div className="text-center transform hover:scale-105 transition-transform duration-300">
