@@ -1,10 +1,20 @@
 const http = require('http');
-const socketIo = require('socket.io');
+const { Server } = require('socket.io');
+const dotenv = require('dotenv');
+
+dotenv.config();
+
 const app = require('./app');
 
 const server = http.createServer(app);
 
-const io = socketIo(server, {
+/*
+--------------------------------
+SOCKET.IO SETUP
+--------------------------------
+*/
+
+const io = new Server(server, {
   cors: {
     origin: process.env.CLIENT_URL || "http://localhost:3000",
     methods: ["GET", "POST"],
@@ -12,39 +22,64 @@ const io = socketIo(server, {
   }
 });
 
+
 /*
 --------------------------------
-Socket.IO Connection
+SOCKET CONNECTION
 --------------------------------
 */
 
-io.on('connection', (socket) => {
+io.on("connection", (socket) => {
 
-  console.log('User connected:', socket.id);
+  console.log("🟢 User connected:", socket.id);
 
-  socket.on('join-quiz', (quizId) => {
+  /*
+  Join quiz room
+  */
+
+  socket.on("join-quiz", (quizId) => {
+
     socket.join(quizId);
+
     console.log(`User ${socket.id} joined quiz ${quizId}`);
+
   });
 
-  socket.on('submit-answer', (data) => {
-    socket.to(data.quizId).emit('answer-submitted', data);
+
+  /*
+  Submit answer
+  */
+
+  socket.on("submit-answer", (data) => {
+
+    socket.to(data.quizId).emit("answer-submitted", data);
+
   });
 
-  socket.on('disconnect', () => {
-    console.log('User disconnected:', socket.id);
+
+  /*
+  Disconnect
+  */
+
+  socket.on("disconnect", () => {
+
+    console.log("🔴 User disconnected:", socket.id);
+
   });
 
 });
 
+
 /*
 --------------------------------
-Start Server
+START SERVER
 --------------------------------
 */
 
 const PORT = process.env.PORT || 5000;
 
 server.listen(PORT, () => {
+
   console.log(`🚀 Server running on port ${PORT}`);
+
 });

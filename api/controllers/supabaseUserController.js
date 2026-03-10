@@ -1,326 +1,275 @@
-const { userHelpers } = require('../utils/supabaseHelpers');
-const supabase = require('../config/supabase');
+const { userHelpers } = require("../utils/supabaseHelpers");
+const supabase = require("../config/supabase");
 
-// @desc    Get user profile
-// @route   GET /api/user/profile
-// @access  Private
+/*
+GET USER PROFILE
+GET /api/user/profile
+*/
 const getUserProfile = async (req, res) => {
   try {
     const userId = req.user.userId;
-    
+
     const { data: user, error } = await userHelpers.getUserById(userId);
-    
-    if (error) {
-      return res.status(404).json({ message: 'User not found' });
+
+    if (error || !user) {
+      return res.status(404).json({ message: "User not found" });
     }
-    
+
+    // Since `users` table doesn't have stat columns, compute it from quiz_scores
+    const { data: scores } = await supabase
+      .from("quiz_scores")
+      .select("points_earned, total_questions, correct_answers")
+      .eq("user_id", userId);
+
+    const stats = (scores || []).reduce(
+      (acc, score) => ({
+        points: acc.points + (score.points_earned || 0),
+        totalAnswers: acc.totalAnswers + (score.total_questions || 0),
+        correctAnswers: acc.correctAnswers + (score.correct_answers || 0),
+        totalQuizzes: acc.totalQuizzes + 1,
+      }),
+      { points: 0, totalAnswers: 0, correctAnswers: 0, totalQuizzes: 0 }
+    );
+
+    const level = Math.floor(stats.points / 100) + 1; // Basic level calculation
+
     res.json({
       id: user.id,
       username: user.username,
       email: user.email,
       avatar: user.avatar,
-      points: user.points,
-      level: user.level,
-      streak: user.streak,
-      isAdmin: user.is_admin,
-      totalQuizzes: user.total_quizzes,
-      correctAnswers: user.correct_answers,
-      totalAnswers: user.total_answers,
-      learningStyle: user.learning_style,
-      difficultyPreference: user.difficulty_preference,
-      emailNotifications: user.email_notifications,
-      courseUpdates: user.course_updates,
-      achievementAlerts: user.achievement_alerts,
-      createdAt: user.created_at,
-      updatedAt: user.updated_at
+      points: stats.points,
+      level: level,
+      streak: user.streak || 0,
+      role: user.role,
+      totalQuizzes: stats.totalQuizzes,
+      correctAnswers: stats.correctAnswers,
+      totalAnswers: stats.totalAnswers,
+      createdAt: user.created_at
     });
   } catch (error) {
-    console.error('Get user profile error:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Get profile error:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
-// @desc    Update user profile
-// @route   PUT /api/user/profile
-// @access  Private
+/*
+UPDATE USER PROFILE
+PUT /api/user/profile
+*/
 const updateUserProfile = async (req, res) => {
   try {
     const userId = req.user.userId;
-    const { username, avatar, learningStyle, difficultyPreference, emailNotifications, courseUpdates, achievementAlerts } = req.body;
-    
+    const { username, avatar } = req.body;
+
     const updates = {};
-    
-    // Check if username is already taken
+
     if (username) {
-      const { data: existingUser } = await userHelpers.getUserByEmailOrUsername('', username);
+      const { data: existingUser } =
+        await userHelpers.getUserByEmailOrUsername("", username);
+
       if (existingUser && existingUser.id !== userId) {
-        return res.status(400).json({ message: 'Username already taken' });
+        return res.status(400).json({ message: "Username already taken" });
       }
+
       updates.username = username;
     }
-    
+
     if (avatar) updates.avatar = avatar;
-    if (learningStyle) updates.learning_style = learningStyle;
-    if (difficultyPreference) updates.difficulty_preference = difficultyPreference;
-    if (emailNotifications !== undefined) updates.email_notifications = emailNotifications;
-    if (courseUpdates !== undefined) updates.course_updates = courseUpdates;
-    if (achievementAlerts !== undefined) updates.achievement_alerts = achievementAlerts;
-    
-    const { data: updatedUser, error } = await userHelpers.updateUserProfile(userId, updates);
-    
+
+    const { data: updatedUser, error } =
+      await userHelpers.updateUserProfile(userId, updates);
+
     if (error) {
-      console.error('Update profile error:', error);
-      return res.status(500).json({ message: 'Error updating profile' });
+      console.error("Update profile error:", error);
+      return res.status(500).json({ message: "Error updating profile" });
     }
-    
+
     res.json({
-      message: 'Profile updated successfully',
+      message: "Profile updated",
       user: {
         id: updatedUser.id,
         username: updatedUser.username,
         email: updatedUser.email,
         avatar: updatedUser.avatar,
-        points: updatedUser.points,
-        level: updatedUser.level,
-        streak: updatedUser.streak,
-        isAdmin: updatedUser.is_admin,
-        learningStyle: updatedUser.learning_style,
-        difficultyPreference: updatedUser.difficulty_preference,
-        emailNotifications: updatedUser.email_notifications,
-        courseUpdates: updatedUser.course_updates,
-        achievementAlerts: updatedUser.achievement_alerts
+        role: updatedUser.role
       }
     });
   } catch (error) {
-    console.error('Update user profile error:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Update user error:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
-// @desc    Get leaderboard
-// @route   GET /api/user/leaderboard
-// @access  Public
+/*
+GET LEADERBOARD
+GET /api/user/leaderboard
+*/
 const getLeaderboard = async (req, res) => {
   try {
     const { limit = 10 } = req.query;
-    
-    const { data: leaderboard, error } = await userHelpers.getLeaderboard(parseInt(limit));
-    
+
+    const { data: users, error } = await supabase
+      .from("users")
+      .select("id, username, avatar");
+
     if (error) {
-      console.error('Get leaderboard error:', error);
-      return res.status(500).json({ message: 'Server error' });
+      console.error("Leaderboard error:", error);
+      return res.status(500).json({ message: "Error fetching leaderboard users" });
     }
-    
-    const formattedLeaderboard = leaderboard.map((user, index) => ({
-      rank: index + 1,
-      id: user.id,
-      username: user.username,
-      points: user.points,
-      level: user.level,
-      avatar: user.avatar
-    }));
-    
-    res.json(formattedLeaderboard);
+
+    // Get all scores
+    const { data: allScores } = await supabase
+      .from("quiz_scores")
+      .select("user_id, points_earned");
+      
+    const userScores = users.map(user => {
+      const userPoints = (allScores || [])
+        .filter(s => s.user_id === user.id)
+        .reduce((sum, score) => sum + (score.points_earned || 0), 0);
+        
+      return {
+        id: user.id,
+        username: user.username,
+        avatar: user.avatar,
+        points: userPoints,
+        level: Math.floor(userPoints / 100) + 1
+      };
+    });
+
+    // Sort by points descending and taking the top "limit"
+    const leaderboard = userScores
+      .sort((a, b) => b.points - a.points)
+      .slice(0, parseInt(limit))
+      .map((user, index) => ({
+        rank: index + 1,
+        id: user.id,
+        username: user.username,
+        points: user.points,
+        level: user.level,
+        avatar: user.avatar
+      }));
+
+    res.json(leaderboard);
   } catch (error) {
-    console.error('Get leaderboard error:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Leaderboard error:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
-// @desc    Get user statistics
-// @route   GET /api/user/stats
-// @access  Private
+/*
+GET USER STATS
+GET /api/user/stats
+*/
 const getUserStats = async (req, res) => {
   try {
     const userId = req.user.userId;
-    
+
     const { data: user, error } = await userHelpers.getUserById(userId);
-    
-    if (error) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-    
-    // Get quiz scores for this user
-    const { data: quizScores, error: scoresError } = await supabase
-      .from('quiz_scores')
-      .select('*')
-      .eq('user_id', userId)
-      .order('attempted_at', { ascending: false });
-    
-    if (scoresError) {
-      console.error('Error fetching quiz scores:', scoresError);
+
+    if (error || !user) {
+      return res.status(404).json({ message: "User not found" });
     }
 
-    // Enrich recentScores with quiz title/category based on first answered question
-    let recentScores = [];
-    if (Array.isArray(quizScores) && quizScores.length > 0) {
-      const topScores = quizScores.slice(0, 10);
-      // Collect first question IDs from answers arrays
-      const firstQuestionIds = topScores
-        .map(s => Array.isArray(s.answers) && s.answers.length > 0 ? s.answers[0].questionId : null)
-        .filter(Boolean);
+    const { data: scores, error: scoreError } = await supabase
+      .from("quiz_scores")
+      .select("*")
+      .eq("user_id", userId)
+      .order("attempted_at", { ascending: false })
+      .limit(10);
 
-      let quizMap = new Map();
-      if (firstQuestionIds.length > 0) {
-        const { data: quizzes, error: quizzesError } = await supabase
-          .from('quizzes')
-          .select(`
-            id,
-            title,
-            category_id,
-            quiz_categories:quiz_categories(id, name)
-          `)
-          .in('id', firstQuestionIds);
-        if (quizzesError) {
-          console.error('Error fetching quiz metadata:', quizzesError);
-        } else if (Array.isArray(quizzes)) {
-          quizzes.forEach(q => quizMap.set(q.id, q));
-        }
-      }
-
-      recentScores = topScores.map(score => {
-        const firstQ = Array.isArray(score.answers) && score.answers.length > 0 ? score.answers[0].questionId : null;
-        const qMeta = firstQ ? quizMap.get(firstQ) : null;
-        return {
-          score: score.score,
-          timeTaken: score.time_taken,
-          correctAnswers: score.correct_answers,
-          totalQuestions: score.total_questions,
-          pointsEarned: score.points_earned,
-          attemptedAt: score.attempted_at,
-          quizTitle: qMeta?.title || qMeta?.quiz_categories?.name || null,
-          category: qMeta?.quiz_categories?.name || null
-        };
-      });
+    if (scoreError) {
+      console.error(scoreError);
     }
-    
-    const stats = {
-      totalQuizzes: user.total_quizzes || 0,
-      correctAnswers: user.correct_answers || 0,
-      totalAnswers: user.total_answers || 0,
-      points: user.points || 0,
-      level: user.level || 1,
+
+    const stats = (scores || []).reduce(
+      (acc, score) => ({
+        points: acc.points + (score.points_earned || 0),
+        totalAnswers: acc.totalAnswers + (score.total_questions || 0),
+        correctAnswers: acc.correctAnswers + (score.correct_answers || 0),
+        totalQuizzes: acc.totalQuizzes + 1,
+      }),
+      { points: 0, totalAnswers: 0, correctAnswers: 0, totalQuizzes: 0 }
+    );
+
+    const combinedStats = {
+      totalQuizzes: stats.totalQuizzes,
+      correctAnswers: stats.correctAnswers,
+      totalAnswers: stats.totalAnswers,
+      points: stats.points,
+      level: Math.floor(stats.points / 100) + 1,
       streak: user.streak || 0,
-      accuracy: user.total_answers > 0 ? Math.round((user.correct_answers / user.total_answers) * 100) : 0,
-      recentScores
+      accuracy:
+        stats.totalAnswers > 0
+          ? Math.round((stats.correctAnswers / stats.totalAnswers) * 100)
+          : 0,
+      recentScores:
+        scores?.slice(0, 10).map((s) => ({
+          score: s.score,
+          correctAnswers: s.correct_answers,
+          totalQuestions: s.total_questions,
+          pointsEarned: s.points_earned,
+          timeTaken: s.time_taken,
+          attemptedAt: s.attempted_at
+        })) || []
     };
-    
-    res.json(stats);
+
+    res.json(combinedStats);
   } catch (error) {
-    console.error('Get user stats error:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error("User stats error:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
-// @desc    Get user achievements/badges
-// @route   GET /api/user/achievements
-// @access  Private
+/*
+GET USER ACHIEVEMENTS
+GET /api/user/achievements
+*/
 const getUserAchievements = async (req, res) => {
   try {
     const userId = req.user.userId;
-    
-    // Check if badges tables exist, if not return mock achievements
-    try {
-      // Try to get user badges
-      const { data: userBadges, error } = await supabase
-        .from('user_badges')
-        .select(`
-          *,
-          badges (*)
-        `)
-        .eq('user_id', userId)
-        .order('earned_at', { ascending: false });
-      
-      if (error) {
-        console.log('Badges tables not found, returning mock achievements');
-        return getMockAchievements(res);
-      }
-      
-      // Get all available badges
-      const { data: allBadges, error: badgesError } = await supabase
-        .from('badges')
-        .select('*')
-        .order('points_required', { ascending: true });
-      
-      if (badgesError) {
-        console.log('Badges table not found, returning mock achievements');
-        return getMockAchievements(res);
-      }
-      
-      const earnedBadgeIds = new Set(userBadges.map(ub => ub.badge_id));
-      
-      const achievements = allBadges.map(badge => ({
-        id: badge.id,
-        name: badge.name,
-        description: badge.description,
-        icon: badge.icon,
-        pointsRequired: badge.points_required,
-        isEarned: earnedBadgeIds.has(badge.id),
-        earnedAt: userBadges.find(ub => ub.badge_id === badge.id)?.earned_at || null
-      }));
-      
-      res.json(achievements);
-    } catch (tableError) {
-      console.log('Badges tables not available, returning mock achievements');
-      return getMockAchievements(res);
-    }
-  } catch (error) {
-    console.error('Get achievements error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
 
-// Helper function to return mock achievements when badges tables don't exist
-const getMockAchievements = (res) => {
-  const mockAchievements = [
-    {
-      id: 1,
-      name: "First Steps",
-      description: "Complete your first quiz",
-      icon: "🎯",
-      pointsRequired: 0,
-      isEarned: true,
-      earnedAt: new Date().toISOString()
-    },
-    {
-      id: 2,
-      name: "Quiz Master",
-      description: "Score 100% on any quiz",
-      icon: "🏆",
-      pointsRequired: 50,
-      isEarned: false,
-      earnedAt: null
-    },
-    {
-      id: 3,
-      name: "Speed Demon",
-      description: "Complete a quiz in under 2 minutes",
-      icon: "⚡",
-      pointsRequired: 100,
-      isEarned: false,
-      earnedAt: null
-    },
-    {
-      id: 4,
-      name: "Knowledge Seeker",
-      description: "Complete 10 quizzes",
-      icon: "📚",
-      pointsRequired: 200,
-      isEarned: false,
-      earnedAt: null
-    },
-    {
-      id: 5,
-      name: "MERN Expert",
-      description: "Master all MERN stack topics",
-      icon: "🚀",
-      pointsRequired: 500,
-      isEarned: false,
-      earnedAt: null
-    }
-  ];
-  
-  res.json(mockAchievements);
+    const { data: user } = await userHelpers.getUserById(userId);
+
+    const { data: scores } = await supabase
+      .from("quiz_scores")
+      .select("points_earned")
+      .eq("user_id", userId);
+
+    const totalQuizzes = scores?.length || 0;
+    const totalPoints = (scores || []).reduce((sum, score) => sum + (score.points_earned || 0), 0);
+
+    const achievements = [];
+
+    if (totalQuizzes >= 1)
+      achievements.push({
+        name: "First Quiz",
+        icon: "🎯"
+      });
+
+    if (totalQuizzes >= 10)
+      achievements.push({
+        name: "Quiz Explorer",
+        icon: "📚"
+      });
+
+    if (totalPoints >= 500)
+      achievements.push({
+        name: "Quiz Master",
+        icon: "🏆"
+      });
+
+    if (user.streak >= 5)
+      achievements.push({
+        name: "Streak Champion",
+        icon: "🔥"
+      });
+
+    res.json(achievements);
+  } catch (error) {
+    console.error("Achievements error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
 };
 
 module.exports = {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api from '../utils/api';
+import api from '../services/api';
 import { QuizSkeleton } from '../components/SkeletonLoader';
 
 const Quiz = () => {
@@ -16,7 +16,6 @@ const Quiz = () => {
   const [timeLeft, setTimeLeft] = useState(0);
   const [timerActive, setTimerActive] = useState(false);
   const [startTime, setStartTime] = useState(null);
-  // Hint and explanation removed for simplified UI
   const [showFullReview, setShowFullReview] = useState(false);
   const [examActive, setExamActive] = useState(false);
   const [pausedQuiz, setPausedQuiz] = useState(null);
@@ -28,7 +27,6 @@ const Quiz = () => {
     loadQuizData();
   }, []);
 
-  // Update quiz progress when answers change
   useEffect(() => {
     if (selectedQuiz && selectedQuiz.questions) {
       const totalQuestions = selectedQuiz.questions.length;
@@ -51,14 +49,13 @@ const Quiz = () => {
 
       const actualTimeTaken = Math.floor((Date.now() - startTime) / 1000);
 
-      const response = await api.post('/api/quiz/submit', {
+      const response = await api.post('/quiz/submit', {
         answers,
         timeTaken: actualTimeTaken
       });
 
       setResults(response.data);
       setQuizComplete(true);
-      // Attempt to exit fullscreen after submit
       if (document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement) {
         try {
           if (document.exitFullscreen) await document.exitFullscreen();
@@ -77,7 +74,6 @@ const Quiz = () => {
   const handleQuizExit = useCallback(async () => {
     if (autoSubmitTriggeredRef.current || submitting || quizComplete) return;
     
-    // Save current quiz state for resume
     setPausedQuiz({
       ...selectedQuiz,
       currentIndex: currentQuizIndex,
@@ -86,21 +82,17 @@ const Quiz = () => {
       startTime: startTime
     });
     
-    // Instead of auto-submitting, just pause the quiz and exit fullscreen
-    setTimerActive(false); // Pause timer
-    setExamActive(false); // Exit exam mode
-    setSelectedQuiz(null); // Return to quiz selection
+    setTimerActive(false); 
+    setExamActive(false); 
+    setSelectedQuiz(null); 
     
-    // Exit fullscreen gracefully
     try {
       await exitFullscreen();
     } catch (_) {}
     
-    // Show a message that quiz is paused
     alert('Quiz paused. You can resume by clicking "Resume Quiz" below.');
   }, [submitting, quizComplete, selectedQuiz, currentQuizIndex, selectedAnswers, timeLeft, startTime]);
 
-  // Timer effect
   useEffect(() => {
     let interval = null;
     if (timerActive && timeLeft > 0) {
@@ -108,7 +100,6 @@ const Quiz = () => {
         setTimeLeft(timeLeft => timeLeft - 1);
       }, 1000);
     } else if (timeLeft === 0 && timerActive) {
-      // Time's up! Auto-submit the quiz
       handleAutoSubmit();
     }
     return () => clearInterval(interval);
@@ -135,26 +126,22 @@ const Quiz = () => {
     try {
       setLoading(true);
       
-      // Load both categories and quizzes in parallel
       const [categoriesResponse, quizzesResponse] = await Promise.all([
-        api.get('/api/quiz/categories'),
-        api.get('/api/quiz?limit=200') // Increased to get all questions
+        api.get('/quiz/categories'),
+        api.get('/quiz?limit=200')
       ]);
       
-      // Count actual questions per category
       const questionCountsByCategory = {};
       const categoryDifficulties = {};
       
       if (quizzesResponse.data && quizzesResponse.data.length > 0) {
         quizzesResponse.data.forEach(quiz => {
           if (quiz.category_id) {
-            // Count questions
             if (!questionCountsByCategory[quiz.category_id]) {
               questionCountsByCategory[quiz.category_id] = 0;
             }
             questionCountsByCategory[quiz.category_id]++;
             
-            // Track difficulty if present
             if (quiz.difficulty) {
               categoryDifficulties[quiz.category_id] = quiz.difficulty;
             }
@@ -162,7 +149,6 @@ const Quiz = () => {
         });
       }
       
-      // Normalize categories with actual question counts
       const normalizedCategories = (categoriesResponse.data || []).map((ct) => {
         const actualCount = questionCountsByCategory[ct.id] || ct.count || ct.questions || 0;
         
@@ -171,16 +157,11 @@ const Quiz = () => {
           title: ct.title || ct.name || 'Category',
           description: ct.description || '',
           icon: ct.icon || '📚',
-          // Use difficulty from backend or from quizzes
           difficulty: ct.difficulty || categoryDifficulties[ct.id] || undefined,
-          timeLimit: ct.timeLimit || Math.ceil(actualCount * 2), // 1:2 ratio
+          timeLimit: ct.timeLimit || Math.ceil(actualCount * 2),
           xp: ct.xp || Math.max(actualCount * 10, 50),
-          questions: actualCount // Use actual count from backend
+          questions: actualCount
         };
-        
-        if (actualCount > 0) {
-          console.log(`Category "${normalizedCategory.title}": ${actualCount} questions, difficulty: ${normalizedCategory.difficulty || 'not set'}`);
-        }
         
         return normalizedCategory;
       });
@@ -194,7 +175,6 @@ const Quiz = () => {
     }
   };
 
-  // Fullscreen helpers
   const requestFullscreen = async () => {
     const el = document.documentElement;
     try {
@@ -215,28 +195,21 @@ const Quiz = () => {
   const handleQuizSelect = async (categoryId) => {
     const selectedCategory = quizCategories.find(cat => cat.id === categoryId);
     if (selectedCategory) {
-      // Filter quizzes based on category
       const filteredQuizzes = quizzes.filter((quiz) => quiz.category_id === categoryId);
       
       if (filteredQuizzes.length > 0) {
         try {
-          // Since each quiz is a question, we can use them directly
-          // Transform quizzes to question format
           const questions = filteredQuizzes.map(quiz => ({
             id: quiz.id,
             question: quiz.question_text,
             options: quiz.options,
-            correctAnswer: quiz.answer, // This should be the correct answer text
+            correctAnswer: quiz.answer,
             explanation: quiz.explanation,
             points: quiz.points || 10
           }));
           
           if (questions.length > 0) {
-            // Use the actual number of questions we have
-            // This ensures the count always matches what's displayed
             const selectedQuestions = questions;
-            
-            console.log(`Starting quiz "${selectedCategory.title}": ${selectedQuestions.length} questions available`);
             
             setSelectedQuiz({
               ...selectedCategory,
@@ -247,10 +220,8 @@ const Quiz = () => {
             setQuizComplete(false);
             setResults(null);
             
-            // Start the timer with 1:2 ratio (1 question = 2 minutes)
-            const calculatedTimeLimit = selectedQuestions.length * 2; // 1:2 ratio
+            const calculatedTimeLimit = selectedQuestions.length * 2;
             startTimer(calculatedTimeLimit);
-            // Enter fullscreen and mark exam active
             requestFullscreen();
             setExamActive(true);
             autoSubmitTriggeredRef.current = false;
@@ -270,7 +241,6 @@ const Quiz = () => {
   const handleResumeQuiz = () => {
     if (!pausedQuiz) return;
     
-    // Restore quiz state
     setSelectedQuiz(pausedQuiz);
     setCurrentQuizIndex(pausedQuiz.currentIndex);
     setSelectedAnswers(pausedQuiz.answers);
@@ -279,17 +249,13 @@ const Quiz = () => {
     setQuizComplete(false);
     setResults(null);
     
-    // Resume timer if there's time left
     if (pausedQuiz.timeLeft > 0) {
       setTimerActive(true);
     }
     
-    // Enter fullscreen and mark exam active
     requestFullscreen();
     setExamActive(true);
     autoSubmitTriggeredRef.current = false;
-    
-    // Clear paused quiz
     setPausedQuiz(null);
   };
 
@@ -298,9 +264,6 @@ const Quiz = () => {
       ...selectedAnswers,
       [questionId]: answer
     });
-    
-    // No feedback during quiz - keep it completely neutral
-    // All feedback will be shown after submission in results
   };
 
   const handleSubmit = async () => {
@@ -310,7 +273,7 @@ const Quiz = () => {
     }
 
     setSubmitting(true);
-    stopTimer(); // Stop the timer when submitting
+    stopTimer();
     
     try {
       const answers = Object.entries(selectedAnswers).map(([questionId, answer]) => ({
@@ -320,7 +283,7 @@ const Quiz = () => {
 
       const actualTimeTaken = Math.floor((Date.now() - startTime) / 1000);
 
-      const response = await api.post('/api/quiz/submit', {
+      const response = await api.post('/quiz/submit', {
         answers,
         timeTaken: actualTimeTaken
       });
@@ -336,7 +299,6 @@ const Quiz = () => {
     }
   };
 
-  // Detect attempts to leave exam context and auto-submit
   useEffect(() => {
     if (!selectedQuiz || quizComplete) {
       setExamActive(false);
@@ -345,21 +307,14 @@ const Quiz = () => {
     }
 
     const handleVisibility = () => {
-      // Don't auto-submit on visibility change - just pause
-      if (document.hidden && examActive) {
-        setTimerActive(false);
-      }
+      if (document.hidden && examActive) setTimerActive(false);
     };
 
     const handleBlur = () => {
-      // Don't auto-submit on window blur - just pause
-      if (examActive) {
-        setTimerActive(false);
-      }
+      if (examActive) setTimerActive(false);
     };
 
     const handleFullscreenChange = () => {
-      // Don't auto-submit on fullscreen exit - just pause
       if (!document.fullscreenElement && !document.webkitFullscreenElement && !document.msFullscreenElement) {
         if (examActive) {
           setTimerActive(false);
@@ -375,10 +330,7 @@ const Quiz = () => {
     const handleKeyDown = (e) => {
       if (!examActive) return;
       const key = e.key.toLowerCase();
-      // Block some navigation/exit keys
-      if (
-        e.ctrlKey && (key === 'w' || key === 't' || key === 'l' || key === 'r')
-      ) {
+      if (e.ctrlKey && (key === 'w' || key === 't' || key === 'l' || key === 'r')) {
         e.preventDefault();
         e.stopPropagation();
       }
@@ -419,8 +371,6 @@ const Quiz = () => {
     }
   };
 
-  // Previous removed in minimal UI
-
   const clearCurrentSelection = () => {
     const currentId = selectedQuiz.questions[currentQuizIndex].id;
     const updated = { ...selectedAnswers };
@@ -434,637 +384,433 @@ const Quiz = () => {
     }
   };
 
-  // Jump UI removed in minimal layout
-
-  // Review panel removed in minimal layout
-
-  // Answer status utils not needed in minimal layout
-
-  // Answer count util not needed in minimal layout
-
-  // Hint helpers removed
-
-  // Bar progress replaced with countdown bar
-
   const getDifficultyColor = useCallback((difficulty) => {
     switch (difficulty) {
       case 'Easy':
-        return 'badge-success';
+        return 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
       case 'Medium':
-        return 'badge-warning';
+        return 'bg-amber-500/10 text-amber-400 border border-amber-500/20';
       case 'Hard':
-        return 'badge-error';
+        return 'bg-red-500/10 text-red-400 border border-red-500/20';
       default:
-        return 'badge-default';
+        return 'bg-slate-700 text-slate-300 border border-slate-600';
     }
   }, []);
 
-  // No need to memoize - already normalized in loadQuizData
   const memoizedQuizCategories = useMemo(() => {
-    return quizCategories; // Already normalized with actual counts
+    return quizCategories;
   }, [quizCategories]);
 
-  if (loading) {
-    return <QuizSkeleton />;
-  }
+  if (loading) return <QuizSkeleton />;
 
   // Quiz Selection Screen
   if (!selectedQuiz) {
     return (
-      <div className="quiz-page" style={{ background: '#0f172a', color: '#e5e7eb' }}>
-        <div className="quiz-content">
-          {/* Header */}
-          <div className="page-header" style={{ background: 'linear-gradient(135deg, #111827, #0b1220)', borderBottom: '1px solid #1f2937', padding: '3rem 2rem' }}>
-            <h1 style={{ color: '#f8fafc', fontSize: '3rem', fontWeight: 800, marginBottom: '1rem' }}>🧠 Knowledge Quests</h1>
-            <p style={{ color: '#cbd5e1', fontSize: '1.1rem', maxWidth: '600px', margin: '0 auto' }}>Test your MERN stack skills and earn XP points</p>
-            
-            {/* Resume Quiz Button */}
-            {pausedQuiz && (
-              <div style={{ marginTop: '2rem' }}>
-                <div className="card" style={{ background: '#1f2937', border: '2px solid #f59e0b', maxWidth: '400px', margin: '0 auto' }}>
-                  <div className="card-content" style={{ padding: '1.5rem', textAlign: 'center' }}>
-                    <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>⏸️</div>
-                    <h3 style={{ color: '#f8fafc', marginBottom: '0.5rem' }}>Quiz Paused</h3>
-                    <p style={{ color: '#cbd5e1', fontSize: '0.9rem', marginBottom: '1rem' }}>
-                      You have {Math.floor(pausedQuiz.timeLeft / 60)}:{(pausedQuiz.timeLeft % 60).toString().padStart(2, '0')} remaining
-                    </p>
+      <div className="min-h-screen bg-slate-900 text-slate-100 font-sans pb-12">
+        {/* Header */}
+        <div className="bg-gradient-to-br from-slate-900 via-indigo-950/20 to-slate-900 border-b border-slate-800 p-12 lg:p-16 relative overflow-hidden text-center">
+          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-5 mix-blend-overlay"></div>
+          <h1 className="text-4xl lg:text-5xl font-extrabold text-white mb-4 drop-shadow-md relative z-10 flex justify-center items-center gap-3">
+            <span className="text-5xl">🧠</span> Knowledge Quests
+          </h1>
+          <p className="text-lg text-slate-300 max-w-2xl mx-auto relative z-10 font-medium">
+            Test your MERN stack skills, conquer challenges, and earn XP points
+          </p>
+          
+          {/* Resume Quiz Banner */}
+          {pausedQuiz && (
+            <div className="mt-8 relative z-10">
+              <div className="bg-slate-800/90 border-2 border-amber-500/80 rounded-2xl max-w-md mx-auto shadow-2xl overflow-hidden backdrop-blur-sm shadow-amber-500/10">
+                <div className="p-6 text-center">
+                  <div className="text-4xl mb-3 drop-shadow-md">⏸️</div>
+                  <h3 className="text-xl font-bold text-white mb-2">Quiz Paused</h3>
+                  <p className="text-slate-300 font-medium mb-6 bg-slate-900/50 py-2 px-4 rounded-lg inline-block">
+                    {Math.floor(pausedQuiz.timeLeft / 60)}:{(pausedQuiz.timeLeft % 60).toString().padStart(2, '0')} remaining
+                  </p>
+                  <div className="flex gap-3 justify-center">
                     <button 
                       onClick={handleResumeQuiz}
-                      className="btn btn-primary" 
-                      style={{ 
-                        backgroundColor: '#f59e0b', 
-                        color: 'white', 
-                        padding: '0.75rem 1.5rem', 
-                        borderRadius: '0.5rem', 
-                        border: 'none', 
-                        fontSize: '1rem', 
-                        fontWeight: 600, 
-                        cursor: 'pointer',
-                        marginRight: '0.5rem'
-                      }}
+                      className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white px-6 py-2.5 rounded-xl font-bold shadow-lg transition-all active:scale-95 flex items-center gap-2"
                     >
-                      🔄 Resume Quiz
+                      <span>🔄</span> Resume
                     </button>
                     <button 
                       onClick={() => setPausedQuiz(null)}
-                      className="btn btn-secondary" 
-                      style={{ 
-                        backgroundColor: '#6b7280', 
-                        color: 'white', 
-                        padding: '0.75rem 1.5rem', 
-                        borderRadius: '0.5rem', 
-                        border: 'none', 
-                        fontSize: '1rem', 
-                        fontWeight: 600, 
-                        cursor: 'pointer'
-                      }}
+                      className="bg-slate-700 hover:bg-slate-600 text-white px-6 py-2.5 rounded-xl font-bold transition-all active:scale-95"
                     >
-                      ❌ Cancel Quiz
+                      Cancel
                     </button>
                   </div>
                 </div>
               </div>
-            )}
-          </div>
-          {/* Quiz Categories Grid */}
-          <div className="quiz-grid" style={{ padding: '3rem 2rem', maxWidth: '1400px', margin: '0 auto' }}>
-            {memoizedQuizCategories.map((category) => (
-              <div key={category.id} className="card" style={{ cursor: 'pointer', transition: 'var(--transition)', border: '1px solid #1f2937', background: '#111827' }} onClick={() => handleQuizSelect(category.id)}>
-                <div className="card-header" style={{ background: 'linear-gradient(135deg, #0b1220, #0f172a)', borderBottom: '1px solid #1f2937' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                    {category.difficulty ? (
-                      <div className={`badge ${getDifficultyColor(category.difficulty)}`}>
-                        {category.difficulty}
-                      </div>
-                    ) : (
-                      <div></div>
-                    )}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#cbd5e1', fontSize: '0.875rem' }}>
-                      <span>🏆</span>
-                      <span style={{ fontWeight: '600' }}>{category.xp} XP</span>
-                    </div>
-                  </div>
-                  <h3 style={{ fontSize: '1.5rem', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem', color: '#f8fafc' }}>
-                    <span style={{ fontSize: '1.75rem' }}>{category.icon}</span>
-                    {category.title}
-                  </h3>
-                  <p style={{ color: '#94a3b8', marginBottom: '1.5rem', lineHeight: '1.6' }}>
-                    {category.description}
-                  </p>
-                </div>
-                <div className="card-content" style={{ padding: '1.5rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', fontSize: '0.875rem', color: '#94a3b8' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <span>🧠</span>
-                      <span>{category.questions} questions</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <span>⏱️</span>
-                      <span>{category.questions * 2} min</span>
-                    </div>
-                  </div>
-                  <button className="btn btn-primary" style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', backgroundColor: '#4f46e5', color: 'white', padding: '0.75rem 1.5rem', borderRadius: '0.5rem', border: 'none', fontSize: '1rem', fontWeight: 600, cursor: 'pointer', boxShadow: '0 4px 12px rgba(79,70,229,0.35)' }}>
-                    🚀 Start Quest
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
+            </div>
+          )}
+        </div>
 
-          {/* Stats Section */}
-          <div className="card" style={{ margin: '3rem 0', border: '1px solid #1f2937', background: '#111827' }}>
-            <div className="card-content" style={{ padding: '2rem' }}>
-              <h3 style={{ textAlign: 'center', marginBottom: '2rem', color: '#f8fafc' }}>Why Choose Our Quizzes?</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '2rem' }}>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '3rem', marginBottom: '1rem', color: '#60a5fa' }}>🎯</div>
-                  <h4 style={{ marginBottom: '0.5rem', color: '#e5e7eb' }}>Targeted Learning</h4>
-                  <p style={{ color: '#94a3b8', fontSize: '0.875rem' }}>Questions designed for specific skill levels and technologies</p>
+        {/* Quiz Categories Grid */}
+        <div className="max-w-7xl mx-auto p-6 lg:p-12">
+          {quizzes.length === 0 ? (
+            <div className="text-center p-16 bg-slate-800/50 rounded-3xl border border-slate-700 shadow-xl">
+              <div className="text-6xl mb-4">📚</div>
+              <h2 className="text-2xl font-bold text-slate-300 mb-2">No quests available yet</h2>
+              <p className="text-slate-400 mb-6 font-medium">Check back later for new challenges!</p>
+              <button onClick={() => window.location.reload()} className="bg-indigo-600 hover:bg-indigo-500 text-white px-8 py-3 rounded-xl font-bold transition-all shadow-lg active:scale-95">
+                🔄 Refresh
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {memoizedQuizCategories.map((category) => (
+                <div 
+                  key={category.id} 
+                  className="bg-slate-800 rounded-3xl border border-slate-700/50 shadow-xl overflow-hidden hover:-translate-y-1.5 transition-all duration-300 hover:shadow-indigo-500/10 hover:border-indigo-500/30 group cursor-pointer flex flex-col"
+                  onClick={() => handleQuizSelect(category.id)}
+                >
+                  <div className="p-8 border-b border-slate-700/50 bg-gradient-to-br from-slate-800 to-slate-900/80 relative overflow-hidden flex-1">
+                    <div className="flex justify-between items-center mb-6 relative z-10">
+                      {category.difficulty ? (
+                        <div className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${getDifficultyColor(category.difficulty)}`}>
+                          {category.difficulty}
+                        </div>
+                      ) : <div />}
+                      <div className="flex items-center gap-1.5 bg-slate-900/80 px-3 py-1.5 rounded-lg border border-slate-700">
+                        <span className="drop-shadow-sm text-sm">🏆</span>
+                        <span className="text-amber-400 font-bold text-sm tracking-wide">{category.xp} XP</span>
+                      </div>
+                    </div>
+                    <h3 className="text-2xl font-extrabold text-white mb-3 flex items-center gap-3 relative z-10 group-hover:text-indigo-300 transition-colors">
+                      <span className="text-3xl drop-shadow-md bg-white/5 p-2 rounded-xl">{category.icon}</span>
+                      {category.title}
+                    </h3>
+                    <p className="text-slate-400 text-sm leading-relaxed relative z-10 font-medium line-clamp-3">
+                      {category.description}
+                    </p>
+                  </div>
+                  <div className="p-6 bg-slate-900/60 flex flex-col gap-6 relative z-10 hover:bg-slate-900/80 transition-colors">
+                    <div className="flex justify-between items-center text-sm text-slate-400 font-semibold bg-slate-800/80 p-3 rounded-xl border border-slate-700/50">
+                      <div className="flex items-center gap-2">
+                        <span className="text-indigo-400 text-base">🧠</span>
+                        <span>{category.questions} <span className="hidden sm:inline">Questions</span> <span className="sm:hidden">Qs</span></span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-blue-400 text-base">⏱️</span>
+                        <span>{category.questions * 2} min</span>
+                      </div>
+                    </div>
+                    <button className="w-full bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg hover:shadow-indigo-500/25 transition-all group-hover:scale-[1.02]">
+                      <span className="text-lg">🚀</span> Start Quest
+                    </button>
+                  </div>
                 </div>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '3rem', marginBottom: '1rem', color: '#f59e0b' }}>⚡</div>
-                  <h4 style={{ marginBottom: '0.5rem', color: '#e5e7eb' }}>Instant Feedback</h4>
-                  <p style={{ color: '#94a3b8', fontSize: '0.875rem' }}>Get immediate results and detailed explanations</p>
+              ))}
+            </div>
+          )}
+
+          {/* Features highlight */}
+          {quizzes.length > 0 && (
+            <div className="mt-16 bg-slate-800/80 rounded-3xl border border-slate-700 p-10 lg:p-14 shadow-2xl backdrop-blur-xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-[80px] pointer-events-none"></div>
+              <h3 className="text-center text-3xl font-extrabold text-white mb-12 relative z-10">Why Take These Quests?</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 relative z-10">
+                <div className="text-center group">
+                  <div className="text-5xl mb-4 text-blue-400 group-hover:scale-110 transition-transform drop-shadow-lg">🎯</div>
+                  <h4 className="text-lg font-bold text-slate-100 mb-2">Targeted Learning</h4>
+                  <p className="text-slate-400 text-sm font-medium leading-relaxed">Questions designed for specific skill levels and technologies.</p>
                 </div>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '3rem', marginBottom: '1rem', color: '#10b981' }}>🏆</div>
-                  <h4 style={{ marginBottom: '0.5rem', color: '#e5e7eb' }}>Earn Rewards</h4>
-                  <p style={{ color: '#94a3b8', fontSize: '0.875rem' }}>Collect XP points and unlock achievements</p>
+                <div className="text-center group">
+                  <div className="text-5xl mb-4 text-amber-400 group-hover:scale-110 transition-transform drop-shadow-lg">⚡</div>
+                  <h4 className="text-lg font-bold text-slate-100 mb-2">Instant Feedback</h4>
+                  <p className="text-slate-400 text-sm font-medium leading-relaxed">Get immediate results and detailed post-quiz explanations.</p>
                 </div>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '3rem', marginBottom: '1rem', color: '#3b82f6' }}>📈</div>
-                  <h4 style={{ marginBottom: '0.5rem', color: '#e5e7eb' }}>Track Progress</h4>
-                  <p style={{ color: '#94a3b8', fontSize: '0.875rem' }}>Monitor your learning journey and improvement</p>
+                <div className="text-center group">
+                  <div className="text-5xl mb-4 text-emerald-400 group-hover:scale-110 transition-transform drop-shadow-lg">🏆</div>
+                  <h4 className="text-lg font-bold text-slate-100 mb-2">Earn Rewards</h4>
+                  <p className="text-slate-400 text-sm font-medium leading-relaxed">Collect XP points and unlock achievements for your profile.</p>
+                </div>
+                <div className="text-center group">
+                  <div className="text-5xl mb-4 text-indigo-400 group-hover:scale-110 transition-transform drop-shadow-lg">📈</div>
+                  <h4 className="text-lg font-bold text-slate-100 mb-2">Track Progress</h4>
+                  <p className="text-slate-400 text-sm font-medium leading-relaxed">Monitor your learning journey and constant improvement.</p>
                 </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     );
   }
 
-  // Quiz Complete Screen
+  // Quiz Complete Screen (Results)
   if (quizComplete && results) {
     const getPerformanceMessage = (score) => {
-      if (score >= 90) return { message: "Outstanding! 🏆", color: "#10b981" };
-      if (score >= 80) return { message: "Excellent! 🌟", color: "#3b82f6" };
-      if (score >= 70) return { message: "Good job! 👍", color: "#f59e0b" };
-      if (score >= 60) return { message: "Not bad! 📚", color: "#f59e0b" };
-      return { message: "Keep practicing! 💪", color: "#ef4444" };
+      if (score >= 90) return { message: "Outstanding! 🏆", color: "text-emerald-400" };
+      if (score >= 80) return { message: "Excellent! 🌟", color: "text-blue-400" };
+      if (score >= 70) return { message: "Good job! 👍", color: "text-amber-400" };
+      if (score >= 60) return { message: "Not bad! 📚", color: "text-amber-500" };
+      return { message: "Keep practicing! 💪", color: "text-red-400" };
     };
 
     const performance = getPerformanceMessage(results.score);
 
     return (
-      <div style={{ 
-        minHeight: '100vh', 
-        background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', 
-        color: '#e5e7eb',
-        padding: '2rem'
-      }}>
-        {/* Header Section */}
-        <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
-          <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🎉</div>
-          <h1 style={{ fontSize: '3rem', marginBottom: '0.5rem', color: '#f8fafc', fontWeight: 800 }}>
-            Test Completed
-          </h1>
-          <p style={{ color: '#cbd5e1', fontSize: '1.25rem', marginBottom: '2rem' }}>
-            {performance.message}
-          </p>
-        </div>
+      <div className="min-h-screen bg-slate-900 text-slate-100 font-sans p-6 lg:p-12 pb-24 relative overflow-hidden">
+        <div className="max-w-6xl mx-auto relative z-10">
+          
+          {/* Header */}
+          <div className="text-center mb-12">
+            <div className="text-6xl lg:text-7xl mb-6 animate-bounce drop-shadow-xl inline-block">🎉</div>
+            <h1 className="text-5xl font-extrabold text-white mb-4 tracking-tight">Test Completed</h1>
+            <p className={`text-2xl font-bold bg-slate-800/80 inline-block px-6 py-2 rounded-full border border-slate-700 shadow-inner ${performance.color}`}>
+              {performance.message}
+            </p>
+          </div>
 
-        {/* Summary Metrics */}
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
-          gap: '1.5rem', 
-          marginBottom: '3rem',
-          maxWidth: '1200px',
-          margin: '0 auto 3rem auto'
-        }}>
-          <div style={{ textAlign: 'center', padding: '1.5rem' }}>
-            <div style={{ fontSize: '3rem', fontWeight: 800, color: performance.color, marginBottom: '0.5rem' }}>
-              {results.score}%
+          {/* Stats Cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
+            <div className="bg-slate-800/80 p-8 rounded-3xl text-center border border-slate-700 shadow-xl backdrop-blur-sm pointer-events-none hover:border-emerald-500/30 transition-colors">
+              <div className={`text-5xl font-extrabold mb-2 ${performance.color} drop-shadow-md`}>{results.score}%</div>
+              <div className="text-slate-400 font-bold uppercase tracking-wider text-xs">Final Score</div>
             </div>
-            <div style={{ fontSize: '1rem', color: '#94a3b8', fontWeight: 600 }}>Final Score</div>
-          </div>
-          <div style={{ textAlign: 'center', padding: '1.5rem' }}>
-            <div style={{ fontSize: '3rem', fontWeight: 800, color: '#f8fafc', marginBottom: '0.5rem' }}>
-              {results.correctAnswers}/{results.totalQuestions}
+            <div className="bg-slate-800/80 p-8 rounded-3xl text-center border border-slate-700 shadow-xl backdrop-blur-sm pointer-events-none hover:border-blue-500/30 transition-colors">
+              <div className="text-5xl font-extrabold mb-2 text-white drop-shadow-md">{results.correctAnswers}<span className="text-3xl text-slate-500">/{results.totalQuestions}</span></div>
+              <div className="text-slate-400 font-bold uppercase tracking-wider text-xs">Correct</div>
             </div>
-            <div style={{ fontSize: '1rem', color: '#94a3b8', fontWeight: 600 }}>Correct Answers</div>
-          </div>
-          <div style={{ textAlign: 'center', padding: '1.5rem' }}>
-            <div style={{ fontSize: '3rem', fontWeight: 800, color: '#f8fafc', marginBottom: '0.5rem' }}>
-              {results.pointsEarned}
+            <div className="bg-slate-800/80 p-8 rounded-3xl text-center border border-slate-700 shadow-xl backdrop-blur-sm pointer-events-none hover:border-amber-500/30 transition-colors">
+              <div className="text-5xl font-extrabold mb-2 text-amber-400 drop-shadow-md">+{results.pointsEarned}</div>
+              <div className="text-slate-400 font-bold uppercase tracking-wider text-xs">XP Earned</div>
             </div>
-            <div style={{ fontSize: '1rem', color: '#94a3b8', fontWeight: 600 }}>Points Earned</div>
-          </div>
-          <div style={{ textAlign: 'center', padding: '1.5rem' }}>
-            <div style={{ fontSize: '3rem', fontWeight: 800, color: '#f8fafc', marginBottom: '0.5rem' }}>
-              {results.streak || 0}
+            <div className="bg-slate-800/80 p-8 rounded-3xl text-center border border-slate-700 shadow-xl backdrop-blur-sm pointer-events-none hover:border-indigo-500/30 transition-colors">
+              <div className="text-5xl font-extrabold mb-2 text-indigo-400 drop-shadow-md">{results.streak || 0}</div>
+              <div className="text-slate-400 font-bold uppercase tracking-wider text-xs">Best Streak</div>
             </div>
-            <div style={{ fontSize: '1rem', color: '#94a3b8', fontWeight: 600 }}>Best Streak</div>
           </div>
-        </div>
 
-        {/* Performance Analysis */}
-        <div style={{ 
-          marginBottom: '3rem',
-          maxWidth: '1200px',
-          margin: '0 auto 3rem auto'
-        }}>
-          <h2 style={{ 
-            marginBottom: '2rem', 
-            color: '#f8fafc', 
-            fontSize: '2rem', 
-            fontWeight: 700,
-            textAlign: 'center'
-          }}>
-            Performance
-          </h2>
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', 
-            gap: '1.5rem' 
-          }}>
-            <div style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '1rem', 
-              padding: '1rem',
-              background: 'rgba(255, 255, 255, 0.05)',
-              borderRadius: '0.5rem'
-            }}>
-              <div style={{ fontSize: '2rem' }}>🎯</div>
-              <div>
-                <div style={{ fontWeight: 600, color: '#f8fafc' }}>
-                  Accuracy: {Math.round((results.correctAnswers / results.totalQuestions) * 100)}%
+          {/* Action Buttons */}
+          <div className="flex flex-wrap justify-center gap-4 mb-16">
+            <button 
+              onClick={() => { setSelectedQuiz(null); setShowFullReview(false); }} 
+              className="bg-indigo-600 hover:bg-indigo-500 text-white px-8 py-3.5 rounded-xl font-bold transition-all shadow-lg active:scale-95 flex items-center gap-2"
+            >
+              <span>🔄</span> Next Quest
+            </button>
+            <button 
+              onClick={() => navigate('/profile')} 
+              className="bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white px-8 py-3.5 rounded-xl font-bold transition-all shadow-lg active:scale-95 flex items-center gap-2"
+            >
+              <span>👤</span> View Profile
+            </button>
+            <button 
+              onClick={() => navigate('/leaderboard')} 
+              className="bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white px-8 py-3.5 rounded-xl font-bold transition-all shadow-lg active:scale-95 flex items-center gap-2"
+            >
+              <span>🏆</span> Leaderboard
+            </button>
+          </div>
+
+          {/* Performance Detailed */}
+          <div className="bg-slate-800/80 rounded-3xl p-8 lg:p-12 border border-slate-700 shadow-2xl mb-12">
+            <h2 className="text-2xl font-bold text-white mb-8 text-center bg-slate-900/50 -mx-8 lg:-mx-12 -mt-8 lg:-mt-12 p-6 lg:p-8 rounded-t-3xl border-b border-slate-700">Detailed Performance</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="flex items-center gap-4 p-5 bg-slate-900/50 rounded-2xl border border-slate-700/50">
+                <div className="w-12 h-12 bg-indigo-500/10 rounded-xl flex items-center justify-center text-2xl">🎯</div>
+                <div>
+                  <div className="text-indigo-200 font-bold">Accuracy</div>
+                  <div className="text-indigo-100 text-sm font-medium">{Math.round((results.correctAnswers / results.totalQuestions) * 100)}% correct rate</div>
                 </div>
               </div>
-            </div>
-            <div style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '1rem', 
-              padding: '1rem',
-              background: 'rgba(255, 255, 255, 0.05)',
-              borderRadius: '0.5rem'
-            }}>
-              <div style={{ fontSize: '2rem' }}>⚡</div>
-              <div>
-                <div style={{ fontWeight: 600, color: '#f8fafc' }}>
-                  Speed: {Math.round(results.timeTaken / 60)} min {results.timeTaken % 60} sec
-                </div>
-              </div>
-            </div>
-            <div style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '1rem', 
-              padding: '1rem',
-              background: 'rgba(255, 255, 255, 0.05)',
-              borderRadius: '0.5rem'
-            }}>
-              <div style={{ fontSize: '2rem' }}>🔥</div>
-              <div>
-                <div style={{ fontWeight: 600, color: '#f8fafc' }}>
-                  Streak: {results.streak || 0} consecutive correct
-                </div>
-              </div>
-            </div>
-            <div style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '1rem', 
-              padding: '1rem',
-              background: 'rgba(255, 255, 255, 0.05)',
-              borderRadius: '0.5rem'
-            }}>
-              <div style={{ fontSize: '2rem' }}>🏆</div>
-              <div>
-                <div style={{ fontWeight: 600, color: '#f8fafc' }}>
-                  XP Earned: {results.pointsEarned} points
+              <div className="flex items-center gap-4 p-5 bg-slate-900/50 rounded-2xl border border-slate-700/50">
+                <div className="w-12 h-12 bg-blue-500/10 rounded-xl flex items-center justify-center text-2xl">⚡</div>
+                <div>
+                  <div className="text-blue-200 font-bold">Speed</div>
+                  <div className="text-blue-100 text-sm font-medium">{Math.round(results.timeTaken / 60)} min {results.timeTaken % 60} sec taken</div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Full Review */}
-        {Array.isArray(results.review) && results.review.length > 0 && (
-          <div style={{ 
-            maxWidth: '1200px',
-            margin: '0 auto 3rem auto'
-          }}>
-            <div style={{ 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              alignItems: 'center', 
-              marginBottom: '2rem' 
-            }}>
-              <h2 style={{ 
-                margin: 0, 
-                fontSize: '2rem', 
-                color: '#f8fafc',
-                fontWeight: 700
-              }}>
-                Complete Review
-              </h2>
-              <button 
-                onClick={() => setShowFullReview(!showFullReview)} 
-                style={{
-                  background: '#3b82f6',
-                  color: 'white',
-                  border: 'none',
-                  padding: '0.75rem 1.5rem',
-                  borderRadius: '0.5rem',
-                  fontWeight: 600,
-                  cursor: 'pointer'
-                }}
-              >
-                {showFullReview ? 'Hide All' : 'Show All'}
-              </button>
-            </div>
-            {showFullReview && (
-              <div style={{ 
-                display: 'grid', 
-                gap: '1.5rem' 
-              }}>
-                {results.review.map((item, idx) => (
-                  <div key={item.questionId || idx} style={{ 
-                    padding: '1.5rem',
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    borderRadius: '0.5rem'
-                  }}>
-                    <div style={{ 
-                      fontWeight: 700, 
-                      marginBottom: '1rem', 
-                      fontSize: '1.1rem',
-                      color: '#f8fafc'
-                    }}>
-                      Q{idx + 1}. {item.question}
-                    </div>
-                    <div style={{ fontSize: '1rem', marginBottom: '0.5rem', color: '#cbd5e1' }}>
-                      Your answer: <span style={{ fontWeight: 600, color: '#f8fafc' }}>
-                        {item.selectedAnswer || '-'}
-                      </span> {item.isCorrect ? '✓' : '✗'}
-                    </div>
-                    <div style={{ fontSize: '1rem', marginBottom: '0.5rem', color: '#cbd5e1' }}>
-                      Correct answer: <span style={{ fontWeight: 600, color: '#f8fafc' }}>
-                        {item.correctAnswer}
-                      </span>
-                    </div>
-                    {Array.isArray(item.options) && item.options.length > 0 && (
-                      <div style={{ fontSize: '0.9rem', marginBottom: '0.5rem', color: '#94a3b8' }}>
-                        Options: {item.options.join(' | ')}
+          {/* Full Review Toggle */}
+          {Array.isArray(results.review) && results.review.length > 0 && (
+            <div className="bg-slate-800/50 rounded-3xl border border-slate-700 p-8 shadow-xl">
+              <div className="flex flex-col md:flex-row justify-between items-center gap-6 mb-8">
+                <h2 className="text-2xl font-bold text-white m-0">Question Review</h2>
+                <button 
+                  onClick={() => setShowFullReview(!showFullReview)} 
+                  className="bg-slate-700 hover:bg-slate-600 text-white px-6 py-2.5 rounded-lg font-bold transition-colors border border-slate-600"
+                >
+                  {showFullReview ? '🙈 Hide Explanations' : '👀 Review All Answers'}
+                </button>
+              </div>
+
+              {showFullReview && (
+                <div className="space-y-6">
+                  {results.review.map((item, idx) => (
+                    <div key={item.questionId || idx} className={`p-6 lg:p-8 rounded-2xl border ${item.isCorrect ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-red-500/5 border-red-500/20'}`}>
+                      <div className="flex items-start gap-4 mb-4">
+                        <div className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${item.isCorrect ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white'}`}>
+                          {item.isCorrect ? '✓' : '✗'}
+                        </div>
+                        <div className="text-lg font-bold text-slate-100 mt-1 leading-snug">
+                          {idx + 1}. {item.question}
+                        </div>
                       </div>
-                    )}
-                    {item.explanation && (
-                      <div style={{ 
-                        fontSize: '0.9rem', 
-                        whiteSpace: 'pre-wrap', 
-                        color: '#94a3b8',
-                        marginTop: '0.5rem',
-                        padding: '0.75rem',
-                        background: 'rgba(255, 255, 255, 0.03)',
-                        borderRadius: '0.25rem'
-                      }}>
-                        Explanation: {item.explanation}
+                      
+                      <div className="ml-12 space-y-3">
+                        <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700/50">
+                          <div className="text-sm font-medium text-slate-400 mb-1">Your answer:</div>
+                          <div className={`font-bold ${item.isCorrect ? 'text-emerald-400' : 'text-red-400'}`}>
+                            {item.selectedAnswer || 'Left blank'}
+                          </div>
+                        </div>
+                        
+                        {!item.isCorrect && (
+                          <div className="bg-emerald-500/10 p-4 rounded-xl border border-emerald-500/20">
+                            <div className="text-sm font-medium text-emerald-500/80 mb-1">Correct answer:</div>
+                            <div className="font-bold text-emerald-400">
+                              {item.correctAnswer}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {item.explanation && (
+                          <div className="mt-4 p-5 bg-slate-800 rounded-xl border border-slate-700 text-slate-300 text-sm leading-relaxed font-medium shadow-inner">
+                            <strong className="text-slate-100 block mb-2">Explanation:</strong> 
+                            {item.explanation}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Action Buttons */}
-        <div style={{ 
-          display: 'flex', 
-          gap: '1rem', 
-          justifyContent: 'center', 
-          flexWrap: 'wrap',
-          maxWidth: '800px',
-          margin: '0 auto'
-        }}>
-          <button 
-            onClick={() => navigate('/profile')} 
-            style={{
-              background: '#3b82f6',
-              color: 'white',
-              border: 'none',
-              padding: '1rem 2rem',
-              borderRadius: '0.5rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-              fontSize: '1rem'
-            }}
-          >
-            👤 View Profile
-          </button>
-          <button 
-            onClick={() => {
-              setSelectedQuiz(null);
-              setShowFullReview(false);
-            }} 
-            style={{
-              background: '#6b7280',
-              color: 'white',
-              border: 'none',
-              padding: '1rem 2rem',
-              borderRadius: '0.5rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-              fontSize: '1rem'
-            }}
-          >
-            🔄 Take Another Quiz
-          </button>
-          <button 
-            onClick={() => navigate('/leaderboard')} 
-            style={{
-              background: '#10b981',
-              color: 'white',
-              border: 'none',
-              padding: '1rem 2rem',
-              borderRadius: '0.5rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-              fontSize: '1rem'
-            }}
-          >
-            🏆 View Leaderboard
-          </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     );
   }
 
-  // No quizzes available
-  if (quizzes.length === 0) {
-    return (
-      <div className="text-center" style={{ padding: '4rem' }}>
-        <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>📚</div>
-        <h2 style={{ color: 'var(--gray-700)', marginBottom: '1rem' }}>No quizzes available</h2>
-        <p style={{ color: 'var(--gray-500)', fontSize: '1.1rem' }}>Check back later for new quizzes!</p>
-        <button onClick={() => window.location.reload()} className="btn btn-primary" style={{ marginTop: '1rem' }}>
-          🔄 Refresh
-        </button>
-      </div>
-    );
-  }
-
-  // Quiz Taking Screen
-  const currentQuestion = selectedQuiz.questions[currentQuizIndex];
+  // Active Quiz View
+  const currentQuestion = selectedQuiz?.questions?.[currentQuizIndex];
 
   return (
-    <div className="quiz-wrapper" style={{ background: '#0f172a', minHeight: '100vh' }}>
-      {/* Hide navigation bar completely */}
+    <div className="min-h-screen bg-slate-900 font-sans text-slate-100 selection:bg-indigo-500/30">
       <style>{`
         .navbar, nav, .nav, [class*="nav"], [class*="Navbar"] { 
           display: none !important; 
-          visibility: hidden !important;
-          height: 0 !important;
-          overflow: hidden !important;
         }
         body { 
           padding-top: 0 !important; 
-          margin-top: 0 !important;
-        }
-        .quiz-page { padding-top: 0 !important; }
-        
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(-10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        
-        @keyframes slideDown {
-          from { opacity: 0; transform: translateY(-20px); max-height: 0; }
-          to { opacity: 1; transform: translateY(0); max-height: 200px; }
         }
       `}</style>
-      <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 24, maxWidth: 1400, margin: '0 auto', padding: '24px' }}>
-        {/* Left Fixed Panel */}
-        <aside style={{ background: 'transparent', color: '#ffffff', position: 'sticky', top: '24px', alignSelf: 'start', height: 'calc(100vh - 48px)', borderRight: '1px solid rgba(255,255,255,0.06)' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', height: '100%', paddingRight: 16 }}>
-            {/* Title */}
-            <div style={{ fontSize: 24, fontWeight: 800, lineHeight: 1.2, marginBottom: 12 }}>{selectedQuiz.title || 'Quiz'}</div>
-            {/* Status */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ width: 14, height: 14, background: '#22c55e', borderRadius: 4, display: 'inline-block' }}></span>
-                <span style={{ color: '#cbd5e1', fontWeight: 600 }}>Attempted</span>
+
+      {/* Main Grid Layout for Exam */}
+      <div className="flex flex-col lg:flex-row h-screen max-w-[1600px] mx-auto overflow-hidden">
+        
+        {/* Left Sidebar - Quiz Info & Navigation */}
+        <aside className="w-full lg:w-80 lg:shrink-0 bg-slate-900 border-r border-slate-800 p-6 flex flex-col h-auto lg:h-full lg:overflow-y-auto">
+          <div className="mb-8">
+            <h2 className="text-2xl font-extrabold text-white mb-4 tracking-tight leading-tight">{selectedQuiz.title}</h2>
+            <div className="flex items-center gap-6 text-sm font-semibold">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-emerald-500 rounded-sm"></div>
+                <span className="text-slate-400">Attempted</span>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ width: 14, height: 14, background: '#334155', borderRadius: 4, display: 'inline-block' }}></span>
-                <span style={{ color: '#cbd5e1', fontWeight: 600 }}>Unattempted</span>
-              </div>
-            </div>
-            {/* Questions attempted count */}
-            <div style={{ color: '#94a3b8', fontSize: 12, fontWeight: 700, letterSpacing: 0.5 }}>QUESTIONS ATTEMPTED</div>
-            <div style={{ color: '#ffffff', fontSize: 20, fontWeight: 800, marginBottom: 16 }}>{Object.keys(selectedAnswers).length} / {selectedQuiz.questions.length}</div>
-            
-            {/* Progress Bar */}
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ color: '#94a3b8', fontSize: 12, fontWeight: 700, letterSpacing: 0.5, marginBottom: 8 }}>PROGRESS</div>
-              <div style={{ 
-                width: '100%', 
-                height: 8, 
-                background: '#334155', 
-                borderRadius: 4, 
-                overflow: 'hidden',
-                marginBottom: 8
-              }}>
-                <div style={{ 
-                  width: `${quizProgress}%`, 
-                  height: '100%', 
-                  background: 'linear-gradient(90deg, #10b981, #059669)', 
-                  transition: 'width 0.3s ease',
-                  borderRadius: 4
-                }}></div>
-              </div>
-              <div style={{ color: '#10b981', fontSize: 14, fontWeight: 600, textAlign: 'center' }}>
-                {quizProgress}% Complete
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-slate-700 rounded-sm"></div>
+                <span className="text-slate-400">Todo</span>
               </div>
             </div>
-            {/* Navigation grid */}
-            <div style={{ color: '#94a3b8', fontSize: 12, fontWeight: 700, letterSpacing: 0.5, marginBottom: 8 }}>QUESTION NAVIGATION</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0,1fr))', gap: 12, paddingRight: 8 }}>
-              {selectedQuiz.questions.map((q, idx) => {
-                const active = idx === currentQuizIndex;
-                const attempted = !!selectedAnswers[q.id];
-                // Show green for attempted questions, blue only for current unanswered question
-                const bg = attempted ? '#16a34a' : active ? '#0ea5e9' : 'transparent';
-                const border = attempted ? '#14532d' : active ? '#38bdf8' : '#334155';
-                const color = attempted || active ? '#ffffff' : '#cbd5e1';
-                return (
-                  <button
-                    key={q.id || idx}
-                    onClick={() => setCurrentQuizIndex(idx)}
-                    style={{
-                      height: 40,
-                      borderRadius: 10,
-                      border: `1px solid ${border}`,
-                      background: bg,
-                      color,
-                      fontWeight: 800,
-                      cursor: 'pointer'
-                    }}
-                    aria-label={`Go to question ${idx + 1}`}
-                  >
-                    {idx + 1}
-                  </button>
-                );
-              })}
+          </div>
+
+          <div className="mb-8">
+            <div className="text-xs font-bold text-slate-500 tracking-widest uppercase mb-1">Questions</div>
+            <div className="text-4xl font-extrabold text-white">
+              {Object.keys(selectedAnswers).length} <span className="text-xl text-slate-500">/ {selectedQuiz.questions.length}</span>
             </div>
-            {/* Spacer */}
-            <div style={{ flex: 1 }}></div>
-            {/* Submit Button */}
-            <button onClick={handleSubmit} disabled={submitting} style={{ width: '100%', border: '1px solid #dc2626', background: '#dc2626', color: '#ffffff', borderRadius: 10, padding: '12px 16px', fontWeight: 800 }}>
-              {submitting ? 'Submitting…' : 'Submit Assignment'}
+          </div>
+
+          <div className="mb-10">
+            <div className="text-xs font-bold text-slate-500 tracking-widest uppercase mb-3 flex justify-between">
+              Progress <span>{quizProgress}%</span>
+            </div>
+            <div className="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-300" 
+                style={{ width: `${quizProgress}%` }}
+              ></div>
+            </div>
+          </div>
+
+          <div className="text-xs font-bold text-slate-500 tracking-widest uppercase mb-4">Navigation</div>
+          <div className="grid grid-cols-5 gap-3 mb-8">
+            {selectedQuiz.questions.map((q, idx) => {
+              const active = idx === currentQuizIndex;
+              const attempted = !!selectedAnswers[q.id];
+              return (
+                <button
+                  key={q.id || idx}
+                  onClick={() => setCurrentQuizIndex(idx)}
+                  className={`h-11 rounded-xl font-bold text-sm transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/50 ${
+                    attempted 
+                      ? active ? 'bg-emerald-600 text-white border-2 border-emerald-400 shadow-lg shadow-emerald-500/20' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30'
+                      : active ? 'bg-indigo-600 text-white border-2 border-indigo-400 shadow-lg shadow-indigo-500/20' : 'bg-slate-800 text-slate-400 border border-slate-700 hover:bg-slate-700 hover:text-white'
+                  }`}
+                >
+                  {idx + 1}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="mt-auto pt-6 lg:border-t lg:border-slate-800">
+            <button 
+              onClick={handleSubmit} 
+              disabled={submitting} 
+              className="w-full bg-red-500 hover:bg-red-400 text-white font-bold py-4 rounded-xl transition-colors shadow-lg shadow-red-500/20 active:scale-95 text-lg"
+            >
+              {submitting ? 'Submitting...' : 'End Assignment'}
             </button>
           </div>
         </aside>
 
-        {/* Right Content */}
-        <div style={{ width: '100%', minHeight: 'calc(100vh - 48px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
-          {/* Centered question card (no top progress bar, time at top-right) */}
-          <div style={{ background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: 12, boxShadow: '0 8px 24px rgba(0,0,0,0.06)', padding: '40px', width: '880px', maxWidth: '100%', minHeight: '600px', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 20 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: '#6b7280' }}>Question {currentQuizIndex + 1} of {selectedQuiz.questions.length}</div>
-            <div style={{ fontSize: 14, fontWeight: 800, color: '#111827' }}>{formatTime(timeLeft)}</div>
-          </div>
-            <div style={{ overflowY: 'auto', marginBottom: 24, flex: 1 }}>
-              <div style={{ fontSize: 22, lineHeight: 1.6, fontWeight: 800, color: '#0f172a', marginBottom: 24 }}>{currentQuestion.question}</div>
+        {/* Right Area - Question Active Area */}
+        <main className="flex-1 bg-slate-900 flex items-center justify-center p-4 lg:p-8 xl:p-12 h-screen overflow-y-auto">
+          <div className="w-full max-w-4xl bg-slate-800/80 backdrop-blur-md rounded-3xl border border-slate-700 shadow-2xl flex flex-col min-h-[600px] xl:min-h-[700px]">
+            
+            {/* Question Header */}
+            <div className="p-6 lg:p-10 border-b border-slate-700/50 flex justify-between items-center bg-slate-800/50 rounded-t-3xl">
+              <div className="text-sm font-bold text-indigo-400 uppercase tracking-widest bg-indigo-500/10 px-4 py-1.5 rounded-lg border border-indigo-500/20">
+                Question {currentQuizIndex + 1}
+              </div>
+              <div className={`font-mono text-2xl font-bold px-5 py-2 rounded-xl flex items-center gap-3 border shadow-inner ${
+                timeLeft < 300 ? 'bg-red-500/10 text-red-400 border-red-500/30 animate-pulse' : 'bg-slate-900 text-slate-200 border-slate-700'
+              }`}>
+                <span>⏱️</span> {formatTime(timeLeft)}
+              </div>
+            </div>
 
-              {/* Options as simple outlined choices (no colored backgrounds) */}
-              <div style={{ display: 'grid', gap: 14 }}>
+            {/* Question Body */}
+            <div className="p-6 lg:p-10 flex-1 flex flex-col">
+              <h2 className="text-2xl lg:text-3xl font-bold text-white mb-10 leading-snug">
+                {currentQuestion.question}
+              </h2>
+              
+              <div className="grid gap-4 mb-8">
                 {currentQuestion.options.map((option, index) => {
                   const isSelected = selectedAnswers[currentQuestion.id] === option;
                   return (
                     <button
                       key={index}
                       onClick={() => handleAnswerSelect(currentQuestion.id, option)}
-                      style={{
-                        textAlign: 'left', width: '100%',
-                        background: '#ffffff',
-                        border: isSelected ? '2px solid #c7d2fe' : '1px solid #e5e7eb',
-                        borderRadius: 10,
-                        padding: '16px 18px', color: '#111827',
-                        display: 'flex', alignItems: 'center', gap: 12,
-                        fontWeight: 600, cursor: 'pointer',
-                        fontSize: '16px'
-                      }}
+                      className={`text-left w-full rounded-2xl p-5 flex items-center gap-5 font-semibold text-lg transition-all focus:outline-none focus:ring-4 focus:ring-indigo-500/20 group ${
+                        isSelected 
+                          ? 'bg-indigo-500/10 border-2 border-indigo-500 text-indigo-200 shadow-md shadow-indigo-500/10' 
+                          : 'bg-slate-900/50 border-2 border-slate-700 text-slate-300 hover:bg-slate-800 hover:border-slate-600 hover:text-white'
+                      }`}
                     >
-                      <span style={{
-                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                        width: 28, height: 28, borderRadius: 9999,
-                        border: '1px solid #e5e7eb', color: '#4f46e5',
-                        fontWeight: 800, background: '#fff'
-                      }}>
+                      <span className={`flex items-center justify-center w-8 h-8 rounded-full font-bold text-sm shrink-0 transition-colors ${
+                        isSelected ? 'bg-indigo-500 text-white' : 'bg-slate-800 text-slate-400 group-hover:bg-slate-700 group-hover:text-white'
+                      }`}>
                         {String.fromCharCode(65 + index)}
                       </span>
                       {option}
@@ -1072,28 +818,41 @@ const Quiz = () => {
                   );
                 })}
               </div>
-              
-              {/* No feedback during quiz - all feedback shown after submission */}
-            </div>
-          {/* Navigation buttons */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
-            {/* Left side - Clear button */}
-            <button onClick={clearCurrentSelection} style={{ border: '1px solid #e5e7eb', background: '#ffffff', color: '#111827', borderRadius: 10, padding: '12px 20px', fontWeight: 700, minWidth: 100, fontSize: '15px' }}>Clear</button>
-            
-            {/* Right side - Skip and Next buttons */}
-            <div style={{ display: 'flex', gap: 14 }}>
-              <button onClick={handleSkip} style={{ border: '1px solid #e5e7eb', background: '#ffffff', color: '#111827', borderRadius: 10, padding: '12px 20px', fontWeight: 700, minWidth: 100, fontSize: '15px' }}>Skip</button>
-              <button
-                onClick={currentQuizIndex === selectedQuiz.questions.length - 1 ? handleSubmit : handleNext}
-                disabled={currentQuizIndex === selectedQuiz.questions.length - 1 ? (submitting || !selectedAnswers[currentQuestion.id]) : !selectedAnswers[currentQuestion.id]}
-                style={{ border: '1px solid #f59e0b', background: '#f59e0b', color: '#ffffff', borderRadius: 10, padding: '12px 20px', fontWeight: 800, minWidth: 100, fontSize: '15px' }}
-              >
-                {currentQuizIndex === selectedQuiz.questions.length - 1 ? (submitting ? 'Submitting…' : 'Submit') : 'Next'}
-              </button>
+
+              {/* Action Bar Footer */}
+              <div className="mt-auto pt-8 border-t border-slate-700/50 flex flex-wrap gap-4 items-center justify-between">
+                <button 
+                  onClick={clearCurrentSelection} 
+                  className="bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-600 px-6 py-3 rounded-xl font-bold transition-all active:scale-95"
+                >
+                  Clear Selection
+                </button>
+                <div className="flex gap-4 w-full sm:w-auto mt-4 sm:mt-0">
+                  <button 
+                    onClick={handleSkip} 
+                    className="flex-1 sm:flex-none bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-600 px-8 py-3 rounded-xl font-bold transition-all active:scale-95"
+                  >
+                    Skip
+                  </button>
+                  <button
+                    onClick={currentQuizIndex === selectedQuiz.questions.length - 1 ? handleSubmit : handleNext}
+                    disabled={!selectedAnswers[currentQuestion.id] && currentQuizIndex !== selectedQuiz.questions.length - 1}
+                    className={`flex-1 sm:flex-none px-10 py-3 rounded-xl font-bold transition-all active:scale-95 ${
+                      !selectedAnswers[currentQuestion.id] && currentQuizIndex !== selectedQuiz.questions.length - 1
+                        ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                        : currentQuizIndex === selectedQuiz.questions.length - 1
+                          ? 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/20'
+                          : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/20'
+                    }`}
+                  >
+                    {currentQuizIndex === selectedQuiz.questions.length - 1 ? (submitting ? 'Submitting...' : 'Finish') : 'Next'}
+                  </button>
+                </div>
+              </div>
+
             </div>
           </div>
-          </div>
-        </div>
+        </main>
       </div>
     </div>
   );

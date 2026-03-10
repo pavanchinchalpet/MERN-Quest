@@ -1,136 +1,98 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import api from '../utils/api';
+import api from '../services/api';
 import { SkeletonCard, SkeletonStat } from '../components/SkeletonLoader';
 
-// Memoized sub-components to prevent re-renders
-const QuickStatCard = React.memo(({ label, value, emoji, color }) => (
-  <div style={{ textAlign: 'center' }}>
-    <div style={{ fontSize: '2rem', fontWeight: '800', color: '#fbbf24' }}>
-      {value}
+const QuickStatCard = React.memo(({ label, value, emoji }) => (
+  <div className="text-center transform hover:scale-105 transition-transform duration-300">
+    <div className="text-3xl md:text-5xl font-extrabold text-amber-400 mb-2 drop-shadow-md flex items-center justify-center gap-3">
+      {value} <span className="text-2xl md:text-4xl drop-shadow-lg">{emoji}</span>
     </div>
-    <div style={{ fontSize: '0.9rem', opacity: 0.8 }}>{label}</div>
+    <div className="text-xs md:text-sm opacity-90 text-slate-300 font-bold tracking-widest uppercase letter-spacing-2">{label}</div>
   </div>
 ));
 
-const StatCard = React.memo(({ title, value, subtitle, icon, gradient, borderColor, textColor, bgColor, subtitleColor }) => (
-  <div style={{
-    backgroundColor: '#111827',
-    borderRadius: '1rem',
-    padding: '2rem',
-    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
-    border: '1px solid #1f2937',
-    background: gradient,
-    borderColor
-  }}>
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-      <h3 style={{ margin: 0, color: textColor, fontSize: '1rem', fontWeight: '600' }}>{title}</h3>
-      <span style={{ fontSize: '1.5rem', color: textColor }}>{icon}</span>
+const StatCard = React.memo(({ title, value, subtitle, icon, gradientClass, borderClass, textClass, valueClass, subtitleClass }) => (
+  <div className={`rounded-3xl p-8 shadow-2xl border backdrop-blur-sm transition-all hover:-translate-y-1 hover:shadow-indigo-500/10 ${gradientClass} ${borderClass}`}>
+    <div className="flex justify-between items-center mb-6">
+      <h3 className={`m-0 text-sm font-bold tracking-wider uppercase ${textClass}`}>{title}</h3>
+      <div className={`text-2xl p-3 rounded-xl bg-slate-900/40 backdrop-blur-md shadow-inner ${textClass}`}>{icon}</div>
     </div>
-    <div style={{ fontSize: '2.5rem', fontWeight: '800', color: bgColor, marginBottom: '0.5rem' }}>
+    <div className={`text-5xl font-extrabold mb-3 tracking-tight drop-shadow-sm ${valueClass}`}>
       {value}
     </div>
-    <p style={{ margin: 0, fontSize: '0.875rem', color: subtitleColor, opacity: 0.8 }}>{subtitle}</p>
+    <p className={`m-0 text-sm font-medium ${subtitleClass}`}>{subtitle}</p>
   </div>
 ));
 
-const RecentQuestItem = React.memo(({ attempt, idx }) => (
-  <div style={{
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '1.25rem',
-    borderRadius: '0.75rem',
-    border: '1px solid #1f2937',
-    background: 'linear-gradient(135deg, rgba(16,185,129,0.08), rgba(5,150,105,0.08))',
-    transition: 'all 0.2s ease'
-  }}>
-    <div style={{ flex: 1, marginRight: '1rem' }}>
-      <h4 style={{
-        margin: '0 0 0.5rem 0',
-        fontSize: '1rem',
-        fontWeight: '600',
-        color: '#e5e7eb'
-      }}>
-        {(attempt.quizTitle || attempt.category || 'Quiz Attempt')} • {new Date(attempt.attemptedAt).toLocaleDateString()}
+const RecentQuestItem = React.memo(({ attempt }) => (
+  <div className="group flex flex-col sm:flex-row items-center justify-between p-6 rounded-2xl border border-slate-700/60 bg-gradient-to-r from-emerald-500/10 to-teal-500/5 transition-all hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/5 hover:-translate-y-0.5">
+    <div className="flex-1 mr-4 w-full mb-4 sm:mb-0">
+      <h4 className="m-0 mb-3 text-lg font-bold text-slate-100 flex items-center gap-3">
+        {(attempt.quizTitle || attempt.category || 'Quiz Attempt')}
+        <span className="text-slate-500 font-medium text-xs bg-slate-800/50 px-2 py-1 rounded-md border border-slate-700/50 shadow-inner">
+          {new Date(attempt.attemptedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+        </span>
       </h4>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: '#94a3b8', fontSize: '0.875rem', fontWeight: 500 }}>
-        {attempt.category ? (
-          <span style={{
-            backgroundColor: '#1f2937',
-            color: '#cbd5e1',
-            padding: '0.15rem 0.6rem',
-            borderRadius: '9999px'
-          }}>{attempt.category}</span>
-        ) : null}
-        <span>Score: {attempt.score}%</span>
-        <span>•</span>
-        <span>{attempt.correctAnswers}/{attempt.totalQuestions} correct</span>
-        <span>•</span>
-        <span>{attempt.pointsEarned} XP</span>
+      <div className="flex flex-wrap items-center gap-3 text-slate-400 text-sm font-semibold">
+        {attempt.category && (
+          <span className="bg-gradient-to-r from-slate-800 to-slate-800/80 text-slate-200 px-3 py-1.5 rounded-lg text-xs border border-slate-600 shadow-sm">
+            {attempt.category}
+          </span>
+        )}
+        <span className="text-emerald-400 bg-emerald-400/10 px-2.5 py-1 rounded-md border border-emerald-400/20 shadow-sm">
+          Score: {attempt.score}%
+        </span>
+        <span className="hidden sm:inline text-slate-700">•</span>
+        <span className="text-slate-300 bg-slate-800/50 px-2.5 py-1 rounded-md">
+          {attempt.correctAnswers}/{attempt.totalQuestions} correct
+        </span>
+        <span className="hidden sm:inline text-slate-700">•</span>
+        <span className="text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-md border border-amber-400/20 shadow-sm">
+          +{attempt.pointsEarned} XP
+        </span>
       </div>
     </div>
-    <button style={{
-      backgroundColor: '#1f2937',
-      color: '#94a3b8',
-      padding: '0.75rem 1.5rem',
-      borderRadius: '0.5rem',
-      border: 'none',
-      fontSize: '0.875rem',
-      fontWeight: '600',
-      cursor: 'not-allowed',
-      transition: 'all 0.2s ease',
-      whiteSpace: 'nowrap'
-    }}>
-      ✅ Completed
-    </button>
+    <div className="bg-slate-900/60 text-emerald-400/80 px-6 py-3.5 rounded-xl border border-emerald-500/20 text-sm font-bold cursor-default transition-all whitespace-nowrap w-full sm:w-auto flex items-center justify-center gap-2 shadow-inner group-hover:bg-slate-900/80 group-hover:text-emerald-400 group-hover:border-emerald-500/40">
+      <div className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center"><span className="text-xs">✓</span></div> 
+      Completed
+    </div>
   </div>
 ));
 
 const AchievementItem = React.memo(({ achievement }) => (
-  <div style={{
-    display: 'flex',
-    alignItems: 'center',
-    gap: '1rem',
-    padding: '1.25rem',
-    borderRadius: '0.75rem',
-    border: '1px solid #1f2937',
-    background: achievement.unlocked ? 'linear-gradient(135deg, rgba(251,191,36,0.15) 0%, rgba(245,158,11,0.15) 100%)' : '#0f172a',
-    opacity: achievement.unlocked ? 1 : 0.7,
-    transition: 'all 0.2s ease'
-  }}>
-    <div style={{ 
-      fontSize: '2rem',
-      color: achievement.unlocked ? '#f59e0b' : '#9ca3af'
-    }}>
+  <div className={`group flex items-center gap-6 p-6 rounded-2xl border transition-all duration-300 ${
+    achievement.unlocked 
+      ? 'border-amber-500/30 bg-gradient-to-br from-amber-500/10 via-amber-700/5 to-slate-900 shadow-xl shadow-amber-500/5 hover:-translate-y-1 hover:shadow-amber-500/10' 
+      : 'border-slate-800 bg-slate-900/40 opacity-70 grayscale-[50%] hover:grayscale-0 hover:bg-slate-800/60'
+  }`}>
+    <div className={`text-4xl flex items-center justify-center w-20 h-20 rounded-2xl transition-all duration-300 ${
+      achievement.unlocked 
+        ? 'bg-gradient-to-br from-amber-400/20 to-orange-500/10 text-amber-400 shadow-[0_0_25px_rgba(251,191,36,0.2)] border border-amber-400/20 group-hover:scale-110' 
+        : 'bg-slate-800 text-slate-500 border border-slate-700'
+    }`}>
       {achievement.icon}
     </div>
-    <div style={{ flex: 1 }}>
-      <h4 style={{ 
-        margin: '0 0 0.25rem 0', 
-        fontSize: '1rem', 
-        fontWeight: '600', 
-        color: achievement.unlocked ? '#fde68a' : '#cbd5e1'
-      }}>
+    <div className="flex-1">
+      <h4 className={`m-0 mb-2 text-xl font-extrabold tracking-tight ${
+        achievement.unlocked ? 'text-transparent bg-clip-text bg-gradient-to-r from-amber-100 to-amber-300' : 'text-slate-300'
+      }`}>
         {achievement.title}
       </h4>
-      <p style={{ 
-        margin: 0, 
-        fontSize: '0.875rem', 
-        color: achievement.unlocked ? '#fbbf24' : '#94a3b8',
-        fontWeight: achievement.unlocked ? '600' : '400'
-      }}>
-        {achievement.unlocked ? '🎉 Unlocked!' : '🔒 Locked'}
-      </p>
+      <div className={`mt-1 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border transition-colors ${
+        achievement.unlocked 
+          ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' 
+          : 'bg-slate-800/50 text-slate-500 border-slate-700/50'
+      }`}>
+        {achievement.unlocked ? <><span className="text-orange-400 animate-pulse">🎉</span> Unlocked</> : <><span>🔒</span> Locked</>}
+      </div>
     </div>
   </div>
 ));
 
 const Home = () => {
   const { user } = useAuth();
-
-  // Live data state
   const [stats, setStats] = useState(null);
   const [achievements, setAchievements] = useState([]);
   const [rank, setRank] = useState(null);
@@ -145,9 +107,9 @@ const Home = () => {
         setError(null);
 
         const requests = [
-          api.get('/api/user/stats'),
-          api.get('/api/user/achievements'),
-          api.get('/api/user/leaderboard')
+          api.get('/user/stats'),
+          api.get('/user/achievements'),
+          api.get('/user/leaderboard')
         ];
 
         const [statsRes, achievementsRes, leaderboardRes] = await Promise.allSettled(requests);
@@ -160,7 +122,6 @@ const Home = () => {
 
         if (achievementsRes.status === 'fulfilled') {
           const raw = achievementsRes.value.data || [];
-          // Normalize fields used by UI
           const mapped = raw.map(a => ({
             id: a.id,
             title: a.name || a.title || 'Achievement',
@@ -186,12 +147,10 @@ const Home = () => {
     if (user) {
       loadData();
     } else {
-      // If not logged in, stop loading so page still renders with prompts
       setLoading(false);
     }
   }, [user]);
 
-  // Derive quest progress bar numbers
   const questStats = useMemo(() => {
     const completed = stats?.totalQuizzes ?? 0;
     const total = Math.max(completed, 20);
@@ -202,84 +161,33 @@ const Home = () => {
 
   const totalPoints = stats?.points ?? user?.points ?? 0;
 
-  // Show skeleton loaders to prevent layout shift
   if (loading) {
     return (
-      <div style={{ 
-        minHeight: '100vh', 
-        background: '#0f172a',
-        padding: '0'
-      }}>
-        {/* Hero Section with reserved space */}
-        <div style={{
-          background: 'linear-gradient(135deg, #111827 0%, #0b1220 100%)',
-          color: 'white',
-          padding: '4rem 2rem',
-          textAlign: 'center',
-          minHeight: '400px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center'
-        }}>
-          <div style={{ maxWidth: '1200px', width: '100%' }}>
-            <div style={{ 
-              width: '400px', 
-              height: '48px', 
-              background: 'rgba(255,255,255,0.1)', 
-              borderRadius: '8px',
-              margin: '0 auto 1rem',
-              animation: 'pulse 1.5s ease-in-out infinite'
-            }} />
-            <div style={{ 
-              width: '300px', 
-              height: '24px', 
-              background: 'rgba(255,255,255,0.08)', 
-              borderRadius: '8px',
-              margin: '0 auto',
-              animation: 'pulse 1.5s ease-in-out infinite'
-            }} />
+      <div className="min-h-screen bg-slate-900 p-0 font-sans">
+        <div className="bg-gradient-to-br from-slate-900 via-indigo-950/20 to-slate-900 text-white p-16 md:p-24 text-center min-h-[400px] flex items-center justify-center relative overflow-hidden border-b border-indigo-500/10">
+          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-5"></div>
+          <div className="w-full max-w-6xl relative z-10">
+            <div className="w-96 h-14 bg-white/5 rounded-xl mx-auto mb-6 animate-pulse backdrop-blur-sm border border-white/10" />
+            <div className="w-72 h-8 bg-white/5 rounded-lg mx-auto animate-pulse backdrop-blur-sm" />
           </div>
         </div>
-
-        {/* Main Content with skeletons */}
-        <div style={{ padding: '3rem 2rem', maxWidth: '1400px', margin: '0 auto' }}>
-          <div style={{
-            backgroundColor: '#111827',
-            borderRadius: '1rem',
-            padding: '2rem',
-            border: '1px solid #1f2937',
-            marginBottom: '3rem',
-            minHeight: '150px'
-          }}>
-            <div style={{ 
-              width: '200px', 
-              height: '32px', 
-              background: '#1f2937', 
-              borderRadius: '4px',
-              margin: '0 auto',
-              animation: 'pulse 1.5s ease-in-out infinite'
-            }} />
+        <div className="p-8 md:p-12 max-w-7xl mx-auto -mt-10 relative z-20">
+          <div className="bg-slate-800/80 backdrop-blur-xl rounded-3xl p-8 border border-white/5 mb-12 min-h-[180px] shadow-2xl">
+            <div className="w-64 h-10 bg-slate-700/50 rounded-lg mx-auto animate-pulse mb-6" />
+            <div className="w-full max-w-2xl h-4 bg-slate-700/30 rounded-full mx-auto animate-pulse" />
           </div>
-
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', 
-            gap: '2rem',
-            marginBottom: '3rem'
-          }}>
-            <SkeletonStat />
-            <SkeletonStat />
-            <SkeletonStat />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="bg-slate-800/50 rounded-3xl p-8 border border-white/5 h-48 animate-pulse flex flex-col justify-between">
+                <div className="flex justify-between items-center"><div className="w-24 h-6 bg-slate-700/50 rounded-md"/><div className="w-10 h-10 bg-slate-700/50 rounded-xl"/></div>
+                <div className="w-32 h-12 bg-slate-700/50 rounded-lg"/>
+              </div>
+            ))}
           </div>
-
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fit, minmax(500px, 1fr))', 
-            gap: '2rem',
-            marginBottom: '3rem'
-          }}>
-            <SkeletonCard height="400px" />
-            <SkeletonCard height="400px" />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+            {[...Array(2)].map((_, i) => (
+              <div key={i} className="bg-slate-800/50 rounded-3xl p-8 border border-white/5 h-96 animate-pulse" />
+            ))}
           </div>
         </div>
       </div>
@@ -288,256 +196,172 @@ const Home = () => {
 
   if (error) {
     return (
-      <div style={{ minHeight: '100vh', background: '#0f172a', color: '#e5e7eb', display: 'grid', placeItems: 'center' }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>⚠️</div>
-          <div style={{ fontWeight: 700, marginBottom: '0.5rem' }}>{error}</div>
-          <button onClick={() => window.location.reload()} style={{ background: '#4f46e5', color: 'white', padding: '0.6rem 1rem', borderRadius: '0.5rem', border: 'none', cursor: 'pointer' }}>Retry</button>
+      <div className="min-h-screen bg-slate-900 text-slate-200 grid place-items-center font-sans">
+        <div className="text-center bg-slate-800/50 p-12 rounded-3xl border border-red-500/20 shadow-2xl max-w-md w-full mx-4 backdrop-blur-xl">
+          <div className="text-6xl mb-6 drop-shadow-lg">⚠️</div>
+          <div className="font-bold text-xl mb-8 text-slate-100">{error}</div>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="w-full bg-gradient-to-r from-indigo-500 to-blue-600 text-white font-bold py-4 px-6 rounded-xl hover:from-indigo-400 hover:to-blue-500 transition-all shadow-lg hover:shadow-indigo-500/25 active:scale-95 border border-indigo-400/20"
+          >
+            Retry Connection
+          </button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="home-page-wrapper" style={{ 
-      minHeight: '100vh', 
-      background: '#0f172a',
-      padding: '0'
-    }}>
+    <div className="min-h-screen bg-slate-900 font-sans selection:bg-indigo-500/30">
       {/* Hero Section */}
-      <div className="home-hero-section" style={{
-        background: 'linear-gradient(135deg, #111827 0%, #0b1220 100%)',
-        color: 'white',
-        textAlign: 'center',
-        position: 'relative',
-        overflow: 'hidden'
-      }}>
-        {/* Background Pattern */}
-        <div style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: `
-            radial-gradient(circle at 20% 80%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
-            radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.08) 0%, transparent 50%),
-            radial-gradient(circle at 40% 40%, rgba(255, 255, 255, 0.05) 0%, transparent 50%)
-          `,
-          pointerEvents: 'none'
-        }}></div>
+      <div className="bg-gradient-to-br from-slate-900 via-indigo-950/40 to-slate-900 text-white text-center relative overflow-hidden pt-12 pb-24 lg:pt-20 lg:pb-32 border-b border-indigo-500/10">
+        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 mix-blend-overlay"></div>
+        <div className="absolute top-0 right-0 -mr-32 -mt-32 w-96 h-96 rounded-full bg-indigo-500/10 blur-[100px] pointer-events-none"></div>
+        <div className="absolute bottom-0 left-0 -ml-32 -mb-32 w-96 h-96 rounded-full bg-blue-500/10 blur-[100px] pointer-events-none"></div>
         
-        <div className="home-hero-inner" style={{ maxWidth: '1200px', margin: '0 auto', position: 'relative', zIndex: 2 }}>
-          <h1 className="home-hero-title" style={{ 
-            fontWeight: '800', 
-            marginBottom: '1rem',
-            lineHeight: '1.1'
-          }}>
-            Welcome back, <span style={{ color: '#fbbf24' }}>{user?.username || 'Learner'}</span>! 🎮
+        <div className="max-w-6xl mx-auto px-6 relative z-10">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 font-semibold text-sm mb-8 backdrop-blur-md shadow-sm">
+            <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
+            Dashboard Active
+          </div>
+          
+          <h1 className="text-5xl lg:text-7xl font-extrabold mb-6 tracking-tight drop-shadow-sm flex flex-col sm:block">
+            Welcome back, <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-amber-400 to-orange-400 drop-shadow-md">{user?.username || 'Learner'}</span>! <span className="inline-block hover:animate-bounce mt-2 sm:mt-0">🎮</span>
           </h1>
-          <p style={{ 
-            fontSize: '1.1rem', 
-            opacity: 0.9, 
-            marginBottom: '1.5rem',
-            maxWidth: '600px',
-            margin: '0 auto 2rem'
-          }}>
-            Continue your MERN stack learning journey and level up your skills
+          <p className="text-xl lg:text-2xl opacity-90 mb-12 max-w-2xl mx-auto text-indigo-100/80 font-medium leading-relaxed">
+            Continue your MERN stack learning journey and level up your developer skills today.
           </p>
           
           {/* Quick Stats */}
-          <div style={{ 
-            display: 'flex', 
-            justifyContent: 'center', 
-            gap: '3rem',
-            marginTop: '2rem',
-            flexWrap: 'wrap'
-          }}>
+          <div className="flex justify-center gap-8 lg:gap-16 mt-8 flex-wrap bg-slate-900/40 p-8 rounded-3xl backdrop-blur-md border border-white/5 shadow-2xl shadow-black/50 mx-auto max-w-4xl">
             <QuickStatCard label="Total XP" value={totalPoints} emoji="⚡" />
+            <div className="w-px h-20 bg-gradient-to-b from-transparent via-slate-700 to-transparent hidden sm:block"></div>
             <QuickStatCard label="Current Level" value={`Level ${questStats.level}`} emoji="🏆" />
+            <div className="w-px h-20 bg-gradient-to-b from-transparent via-slate-700 to-transparent hidden sm:block"></div>
             <QuickStatCard label="Day Streak" value={questStats.streak} emoji="🔥" />
           </div>
 
           {/* Quick Navigation Links */}
-          <div style={{
-            display: 'flex',
-            justifyContent: 'center',
-            gap: '1.5rem',
-            marginTop: '2rem',
-            flexWrap: 'wrap'
-          }}>
+          <div className="flex justify-center gap-4 mt-12 flex-wrap">
             <Link 
               to="/quiz" 
-              style={{
-                backgroundColor: '#4f46e5',
-                color: 'white',
-                padding: '0.75rem 1.5rem',
-                borderRadius: '0.5rem',
-                textDecoration: 'none',
-                fontSize: '0.9rem',
-                fontWeight: '600',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                transition: 'all 0.2s ease',
-                boxShadow: '0 4px 12px rgba(79, 70, 229, 0.35)'
-              }}
+              className="bg-gradient-to-r from-indigo-600 to-blue-600 text-white px-8 py-4 rounded-xl font-bold flex items-center gap-3 transition-all hover:from-indigo-500 hover:to-blue-500 shadow-xl shadow-indigo-600/20 hover:shadow-indigo-600/40 hover:-translate-y-1 group border border-indigo-400/20"
             >
-              <span>🎯</span>
-              Start Quiz
+              <span className="text-xl group-hover:scale-110 transition-transform">🎯</span>
+              Start New Quest
             </Link>
             <Link 
               to="/leaderboard" 
-              style={{
-                backgroundColor: 'transparent',
-                color: '#e5e7eb',
-                padding: '0.75rem 1.5rem',
-                borderRadius: '0.5rem',
-                textDecoration: 'none',
-                fontSize: '0.9rem',
-                fontWeight: '600',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                transition: 'all 0.2s ease',
-                border: '2px solid #374151',
-                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)'
-              }}
+              className="bg-slate-800/80 backdrop-blur-md text-slate-100 px-8 py-4 rounded-xl font-bold flex items-center gap-3 transition-all hover:bg-slate-700/80 shadow-xl shadow-black/20 hover:shadow-black/40 border border-slate-600/50 hover:border-slate-500 hover:-translate-y-1 group"
             >
-              <span>🏆</span>
-              View Leaderboard
+              <span className="text-xl group-hover:scale-110 transition-transform">📊</span>
+              Global Rankings
             </Link>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <div style={{ padding: '3rem 2rem', maxWidth: '1400px', margin: '0 auto' }}>
+      <div className="p-6 md:p-12 max-w-7xl mx-auto -mt-8 relative z-20">
+        
         {/* Progress Overview */}
-        <div style={{
-          backgroundColor: '#111827',
-          borderRadius: '1rem',
-          padding: '2rem',
-          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
-          marginBottom: '3rem',
-          border: '1px solid #1f2937'
-        }}>
-          <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
-              <span style={{ fontSize: '2rem' }}>🏆</span>
-              <h2 style={{ margin: 0, fontSize: '1.75rem', fontWeight: '700', color: '#93c5fd' }}>
+        <div className="bg-slate-800/95 backdrop-blur-xl rounded-3xl p-8 lg:p-12 shadow-2xl shadow-black/40 mb-12 border border-slate-700/50 relative overflow-hidden group hover:border-indigo-500/30 transition-colors duration-500">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 rounded-full blur-[80px] -mr-32 -mt-32 pointer-events-none"></div>
+          
+          <div className="text-center relative z-10">
+            <div className="flex items-center justify-center gap-4 mb-6">
+              <span className="text-4xl lg:text-5xl drop-shadow-lg">✨</span>
+              <h2 className="m-0 text-3xl lg:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 via-blue-300 to-indigo-300">
                 Level {questStats.level} Developer
               </h2>
             </div>
-            <div style={{
-              width: '100%',
-              height: '12px',
-              backgroundColor: '#1f2937',
-              borderRadius: '6px',
-              overflow: 'hidden',
-              marginBottom: '1rem'
-            }}>
-              <div style={{
-                width: `${(questStats.completed / (questStats.total || 1)) * 100}%`,
-                height: '100%',
-                background: 'linear-gradient(90deg, #4f46e5, #4338ca)',
-                borderRadius: '6px',
-                transition: 'width 0.5s ease'
-              }}></div>
+            
+            <div className="w-full max-w-3xl mx-auto h-5 bg-slate-900/80 rounded-full overflow-hidden mb-4 border border-slate-700/50 shadow-inner p-1 pl-1">
+              <div 
+                className="h-full bg-gradient-to-r from-indigo-500 via-blue-500 to-indigo-400 rounded-full transition-all duration-1000 ease-out flex items-center justify-end px-2"
+                style={{ width: `${Math.max(5, (questStats.completed / (questStats.total || 1)) * 100)}%` }}
+              >
+                <div className="w-2 h-2 rounded-full bg-white/50 animate-pulse"></div>
+              </div>
             </div>
-            <p style={{ margin: 0, color: '#cbd5e1', fontSize: '1rem', fontWeight: '500' }}>
-              {questStats.completed}/{questStats.total} quests completed
+            
+            <p className="m-0 text-slate-400 text-lg font-bold tracking-wide">
+              <span className="text-indigo-300">{questStats.completed}</span> / {questStats.total} quests completed to next level
             </p>
           </div>
         </div>
 
         {/* Stats Grid */}
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', 
-          gap: '2rem',
-          marginBottom: '3rem'
-        }}>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 mb-12">
           <StatCard 
             title="Total XP"
             value={totalPoints}
-            subtitle={stats?.pointsEarnedThisWeek ? `+${stats.pointsEarnedThisWeek} this week` : ''}
+            subtitle={stats?.pointsEarnedThisWeek ? `+${stats.pointsEarnedThisWeek} this week` : 'Start learning to earn XP!'}
             icon="⚡"
-            gradient="linear-gradient(135deg, rgba(16,185,129,0.15) 0%, rgba(5,150,105,0.15) 100%)"
-            borderColor="#064e3b"
-            textColor="#34d399"
-            bgColor="#a7f3d0"
-            subtitleColor="#34d399"
+            gradientClass="bg-gradient-to-br from-emerald-900/40 to-emerald-900/10"
+            borderClass="border-emerald-500/20"
+            textClass="text-emerald-400"
+            valueClass="text-emerald-300"
+            subtitleClass="text-emerald-500/80"
           />
 
           <StatCard 
-            title="Streak"
-            value={`${questStats.streak} days`}
-            subtitle="Keep it up!"
-            icon="🎯"
-            gradient="linear-gradient(135deg, rgba(251,191,36,0.15) 0%, rgba(245,158,11,0.15) 100%)"
-            borderColor="#92400e"
-            textColor="#fbbf24"
-            bgColor="#fbbf24"
-            subtitleColor="#fbbf24"
+            title="Current Streak"
+            value={`${questStats.streak} Days`}
+            subtitle="Keep the fire burning!"
+            icon="🔥"
+            gradientClass="bg-gradient-to-br from-amber-900/40 to-amber-900/10"
+            borderClass="border-amber-500/20"
+            textClass="text-amber-400"
+            valueClass="text-amber-300"
+            subtitleClass="text-amber-500/80"
           />
 
           <StatCard 
-            title="Rank"
+            title="Global Rank"
             value={rank ? `#${rank}` : '-'}
-            subtitle="Global leaderboard"
-            icon="👥"
-            gradient="linear-gradient(135deg, rgba(99,102,241,0.15) 0%, rgba(79,70,229,0.15) 100%)"
-            borderColor="#4338ca"
-            textColor="#93c5fd"
-            bgColor="#c7d2fe"
-            subtitleColor="#a5b4fc"
+            subtitle="Among all developers"
+            icon="🌍"
+            gradientClass="bg-gradient-to-br from-indigo-900/40 to-indigo-900/10"
+            borderClass="border-indigo-500/20"
+            textClass="text-indigo-400"
+            valueClass="text-indigo-300"
+            subtitleClass="text-indigo-500/80"
           />
         </div>
 
         {/* Recent Quests and Achievements */}
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(500px, 1fr))', 
-          gap: '2rem',
-          marginBottom: '3rem'
-        }}>
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 lg:gap-12 mb-16">
           {/* Recent Attempts */}
-          <div style={{
-            backgroundColor: '#111827',
-            borderRadius: '1rem',
-            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
-            border: '1px solid #1f2937',
-            overflow: 'hidden'
-          }}>
-            <div style={{
-              padding: '2rem 2rem 1rem',
-              borderBottom: '1px solid #1f2937',
-              background: 'linear-gradient(135deg, #0b1220 0%, #0f172a 100%)'
-            }}>
-              <h3 style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '0.75rem', 
-                margin: 0, 
-                color: '#93c5fd',
-                fontSize: '1.25rem',
-                fontWeight: '700'
-              }}>
-                <span style={{ fontSize: '1.5rem' }}>📚</span>
-                Recent Quests
-              </h3>
-              <p style={{ margin: '0.5rem 0 0 0', color: '#94a3b8', fontSize: '0.875rem' }}>
-                Continue your learning adventure
-              </p>
+          <div className="bg-slate-800/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-slate-700/50 overflow-hidden flex flex-col hover:border-slate-600 transition-colors">
+            <div className="p-8 border-b border-slate-700/50 bg-gradient-to-r from-slate-800 to-slate-800/40">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="flex items-center gap-3 m-0 text-indigo-300 text-2xl font-extrabold tracking-tight">
+                    <div className="p-2 bg-indigo-500/10 rounded-lg text-2xl">📚</div>
+                    Recent Quests
+                  </h3>
+                  <p className="mt-2 text-slate-400 text-sm font-medium">Continue your learning adventure</p>
+                </div>
+                <Link to="/quiz" className="text-sm font-bold text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 px-4 py-2 rounded-lg transition-colors border border-indigo-500/20">
+                  View All
+                </Link>
+              </div>
             </div>
-            <div style={{ padding: '2rem' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div className="p-8 flex-1 bg-slate-900/20">
+              <div className="flex flex-col gap-4">
                 {recentAttempts.length === 0 ? (
-                  <div style={{ color: '#94a3b8' }}>No recent activity. Take a quiz to get started!</div>
+                  <div className="text-center p-12 bg-slate-800/50 rounded-2xl border border-slate-700 border-dashed">
+                    <div className="text-5xl mb-4 opacity-50">🧭</div>
+                    <div className="text-slate-300 font-bold mb-2">No quests completed yet</div>
+                    <div className="text-slate-500 text-sm mb-6">Take your first MERN quiz to get started!</div>
+                    <Link to="/quiz" className="inline-block bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2.5 px-6 rounded-lg transition-colors shadow-lg shadow-indigo-500/20">
+                      Explore Quests
+                    </Link>
+                  </div>
                 ) : (
                   recentAttempts.map((attempt, idx) => (
-                    <RecentQuestItem key={attempt.attemptedAt || idx} attempt={attempt} idx={idx} />
+                    <RecentQuestItem key={attempt.attemptedAt || idx} attempt={attempt} />
                   ))
                 )}
               </div>
@@ -545,125 +369,87 @@ const Home = () => {
           </div>
 
           {/* Achievements */}
-          <div style={{
-            backgroundColor: '#111827',
-            borderRadius: '1rem',
-            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
-            border: '1px solid #1f2937',
-            overflow: 'hidden'
-          }}>
-            <div style={{
-              padding: '2rem 2rem 1rem',
-              borderBottom: '1px solid #1f2937',
-              background: 'linear-gradient(135deg, rgba(251,191,36,0.15) 0%, rgba(245,158,11,0.15) 100%)'
-            }}>
-              <h3 style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '0.75rem', 
-                margin: 0, 
-                color: '#fbbf24',
-                fontSize: '1.25rem',
-                fontWeight: '700'
-              }}>
-                <span style={{ fontSize: '1.5rem' }}>🏆</span>
-                Achievements
-              </h3>
-              <p style={{ margin: '0.5rem 0 0 0', color: '#fbbf24', fontSize: '0.875rem', opacity: 0.8 }}>
-                Your learning milestones
-              </p>
+          <div className="bg-slate-800/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-slate-700/50 overflow-hidden flex flex-col hover:border-slate-600 transition-colors">
+            <div className="p-8 border-b border-slate-700/50 bg-gradient-to-r from-amber-900/20 to-slate-800/40">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="flex items-center gap-3 m-0 text-amber-400 text-2xl font-extrabold tracking-tight">
+                    <div className="p-2 bg-amber-500/10 rounded-lg text-2xl drop-shadow-md">🏆</div>
+                    Achievements
+                  </h3>
+                  <p className="mt-2 text-amber-500/70 text-sm font-medium">Your learning milestones</p>
+                </div>
+                <div className="text-sm font-bold text-slate-400 border border-slate-700 px-4 py-2 rounded-lg bg-slate-800 shadow-inner">
+                  {achievements.filter(a => a.unlocked).length} / {achievements.length} Unlocked
+                </div>
+              </div>
             </div>
-            <div style={{ padding: '2rem' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {achievements.map((achievement) => (
-                  <AchievementItem key={achievement.id} achievement={achievement} />
-                ))}
+            <div className="p-8 flex-1 bg-slate-900/20">
+              <div className="flex flex-col gap-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+                {achievements.length === 0 ? (
+                    <div className="text-center p-12 text-slate-500 font-medium bg-slate-800/30 rounded-2xl">
+                        Keep learning to unlock achievements!
+                    </div>
+                ) : (
+                    achievements.map((achievement) => (
+                    <AchievementItem key={achievement.id} achievement={achievement} />
+                    ))
+                )}
+                
               </div>
             </div>
           </div>
         </div>
 
         {/* Call to Action */}
-        <div style={{
-          backgroundColor: '#111827',
-          borderRadius: '1rem',
-          padding: '3rem 2rem',
-          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
-          border: '1px solid #1f2937',
-          textAlign: 'center',
-          background: 'linear-gradient(135deg, #0b1220 0%, #0f172a 100%)'
-        }}>
-          <h2 style={{ 
-            fontSize: '2.5rem', 
-            marginBottom: '1rem', 
-            background: 'linear-gradient(135deg, #60a5fa, #a78bfa)', 
-            WebkitBackgroundClip: 'text', 
-            WebkitTextFillColor: 'transparent', 
-            backgroundClip: 'text',
-            fontWeight: '800'
-          }}>
-            Ready to Level Up? 🚀
-          </h2>
-          <p style={{ 
-            color: '#cbd5e1', 
-            fontSize: '1.25rem', 
-            marginBottom: '2.5rem', 
-            maxWidth: '700px', 
-            margin: '0 auto 2.5rem',
-            lineHeight: '1.6'
-          }}>
-            Take on new challenges, earn XP, and climb the leaderboard. Your MERN stack mastery journey continues here!
-          </p>
-          <div style={{ 
-            display: 'flex', 
-            gap: '1.5rem', 
-            justifyContent: 'center', 
-            flexWrap: 'wrap' 
-          }}>
-            <Link 
-              to="/quiz" 
-              style={{
-                backgroundColor: '#4f46e5',
-                color: 'white',
-                padding: '1rem 2rem',
-                borderRadius: '0.75rem',
-                textDecoration: 'none',
-                fontSize: '1.1rem',
-                fontWeight: '600',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                transition: 'all 0.2s ease',
-                boxShadow: '0 4px 12px rgba(79, 70, 229, 0.35)'
-              }}
-            >
-              <span>🎯</span>
-              Start Quiz
-            </Link>
-            <Link 
-              to="/leaderboard" 
-              style={{
-                backgroundColor: 'transparent',
-                color: '#e5e7eb',
-                padding: '1rem 2rem',
-                borderRadius: '0.75rem',
-                textDecoration: 'none',
-                fontSize: '1.1rem',
-                fontWeight: '600',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                transition: 'all 0.2s ease',
-                border: '2px solid #374151',
-                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)'
-              }}
-            >
-              <span>🏆</span>
-              View Leaderboard
-            </Link>
+        <div className="bg-gradient-to-br from-indigo-900 via-blue-900 to-slate-900 rounded-3xl p-12 lg:p-16 shadow-2xl border border-indigo-500/30 text-center relative overflow-hidden group hover:border-indigo-400/50 transition-colors duration-500">
+          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 mix-blend-overlay"></div>
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-indigo-500/20 rounded-full blur-[100px] pointer-events-none group-hover:bg-indigo-500/30 transition-colors duration-700"></div>
+          
+          <div className="relative z-10 max-w-3xl mx-auto">
+            <h2 className="text-4xl md:text-5xl lg:text-6xl font-extrabold mb-6 tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-200 via-indigo-200 to-blue-200 drop-shadow-lg">
+              Ready to Level Up? 🚀
+            </h2>
+            <p className="text-lg md:text-xl text-indigo-100/90 mb-10 leading-relaxed font-medium px-4">
+              Take on new coding challenges, master the stack, and forge your path to becoming a top-tier MERN stack developer.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-6 justify-center">
+              <Link 
+                to="/quiz" 
+                className="bg-gradient-to-r from-indigo-500 to-blue-500 text-white px-10 py-5 rounded-2xl font-bold text-lg flex items-center justify-center gap-3 transition-all hover:from-indigo-400 hover:to-blue-400 shadow-xl shadow-indigo-500/30 hover:shadow-indigo-500/50 hover:-translate-y-1 border border-indigo-400/30 group/btn"
+              >
+                <span className="text-2xl group-hover/btn:scale-110 transition-transform">⚔️</span>
+                Embark on a Quest
+              </Link>
+              <Link 
+                to="/leaderboard" 
+                className="bg-slate-900/60 backdrop-blur-md text-slate-100 px-10 py-5 rounded-2xl font-bold text-lg flex items-center justify-center gap-3 transition-all hover:bg-slate-800 border-2 border-slate-700/80 hover:border-slate-500 shadow-xl hover:shadow-2xl hover:-translate-y-1 group/btn2"
+              >
+                <span className="text-2xl group-hover/btn2:scale-110 transition-transform">🥇</span>
+                View Hall of Fame
+              </Link>
+            </div>
           </div>
         </div>
       </div>
+      
+      {/* Custom Scrollbar CSS for achievements list */}
+      <style dangerouslySetInnerHTML={{__html: `
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.5);
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(71, 85, 105, 0.5);
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(71, 85, 105, 0.8);
+        }
+      `}} />
     </div>
   );
 };

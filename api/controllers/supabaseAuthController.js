@@ -1,45 +1,28 @@
-const jwt = require('jsonwebtoken');
-const { validationResult } = require('express-validator');
-const supabase = require('../config/supabase');
-const { userHelpers } = require('../utils/supabaseHelpers');
+const jwt = require("jsonwebtoken");
+const bcrypt = require("bcryptjs");
+const { validationResult } = require("express-validator");
+const supabase = require("../config/supabase");
+const { sendOtpEmail } = require("../utils/emailService");
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
-if (!JWT_SECRET) {
-  throw new Error('JWT_SECRET is required in environment variables');
-}
 
-/*
---------------------------------
-COOKIE CONFIGURATION
---------------------------------
-*/
+// COOKIE CONFIG
+
 
 const cookieOptions = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
-  sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-  maxAge: 7 * 24 * 60 * 60 * 1000,
-  path: '/'
+  secure: process.env.NODE_ENV === "production",
+  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+  maxAge: 7 * 24 * 60 * 60 * 1000
 };
 
-/*
---------------------------------
-HELPERS
---------------------------------
-*/
+
+// TOKEN GENERATOR
+
 
 const generateToken = (userId) => {
-  return jwt.sign({ userId }, JWT_SECRET, {
-    expiresIn: '7d'
-  });
-};
-
-const extractToken = (req) => {
-  return (
-    req.header('Authorization')?.replace('Bearer ', '') ||
-    req.cookies?.token
-  );
+  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: "7d" });
 };
 
 /*
@@ -50,394 +33,362 @@ REGISTER
 
 const register = async (req, res) => {
   try {
+
     const errors = validationResult(req);
 
-    if (!errors.isEmpty())
+    if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
+    }
 
     const { username, email, password } = req.body;
 
-    const { data: existingUser } =
-      await userHelpers.getUserByEmailOrUsername(email, username);
+    // Check existing user
+    const { data: existingUser } = await supabase
+      .from("users")
+      .select("*")
+      .or(`email.eq.${email},username.eq.${username}`)
+      .single();
 
     if (existingUser) {
       return res.status(400).json({
-        message:
-          existingUser.email === email
-            ? 'Email already registered'
-            : 'Username already taken'
+        message: "User already exists"
       });
     }
 
-    const serviceClient = supabase.getServiceClient();
+    const passwordHash = await bcrypt.hash(password, 10);
 
-    if (!serviceClient) {
-      return res.status(500).json({
-        message: 'Service role not configured'
-      });
-    }
-
-    const { data: authData, error: authError } =
-      await serviceClient.auth.admin.createUser({
+    // Create user
+    const { data: user, error: userError } = await supabase
+      .from("users")
+      .insert({
+        username,
         email,
-        password,
-        email_confirm: true,
-        user_metadata: { username }
-      });
+        avatar: "default"
+      })
+      .select()
+      .single();
 
-    if (authError || !authData.user) {
-      return res.status(400).json({
-        message: authError?.message || 'User creation failed'
+    if (userError) {
+      console.error(userError);
+      return res.status(500).json({
+        message: "Database error creating new user"
       });
     }
 
-    await userHelpers.createUserProfile(authData.user.id, {
-      username,
-      email,
-      avatar: 'default'
-    });
+    // Store password
+    const { error: loginError } = await supabase
+      .from("auth_logins")
+      .insert({
+        user_id: user.id,
+        method: "password",
+        password_hash: passwordHash,
+        is_verified: true
+      });
 
-    const token = generateToken(authData.user.id);
+    if (loginError) {
+      console.error(loginError);
+      return res.status(500).json({
+        message: "Failed to create login record"
+      });
+    }
 
-    res.cookie('token', token, cookieOptions);
+    const token = generateToken(user.id);
+
+    res.cookie("token", token, cookieOptions);
 
     res.status(201).json({
-      message: 'User registered successfully',
+      message: "User registered successfully",
       token,
       user: {
-        id: authData.user.id,
-        username,
-        email
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        avatar: user.avatar,
+        role: user.role
       }
     });
 
   } catch (error) {
-    console.error('Register error:', error);
-    res.status(500).json({ message: 'Server error' });
+
+    console.error("Register error:", error);
+
+    res.status(500).json({
+      message: "Server error"
+    });
   }
 };
 
-/*
---------------------------------
-LOGIN
---------------------------------
-*/
+
+// LOGIN
+
 
 const login = async (req, res) => {
   try {
 
     const errors = validationResult(req);
 
-    if (!errors.isEmpty())
+    if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
+    }
 
     const { email, password } = req.body;
 
-    const { data: userProfile } =
-      await userHelpers.getUserByEmailOrUsername(email, '');
+    // Get user
+    const { data: user } = await supabase
+      .from("users")
+      .select("*")
+      .eq("email", email)
+      .single();
 
-    if (!userProfile)
-      return res.status(401).json({ message: 'Invalid credentials' });
-
-    const { data: authData, error } =
-      await supabase.auth.signInWithPassword({
-        email,
-        password
+    if (!user) {
+      return res.status(401).json({
+        message: "Invalid credentials"
       });
+    }
 
-    if (error || !authData.user)
-      return res.status(401).json({ message: 'Invalid credentials' });
+    // Get password hash
+    const { data: loginData } = await supabase
+      .from("auth_logins")
+      .select("*")
+      .eq("user_id", user.id)
+      .eq("method", "password")
+      .single();
 
-    const token = generateToken(authData.user.id);
+    if (!loginData) {
+      return res.status(401).json({
+        message: "Login method not found"
+      });
+    }
 
-    res.cookie('token', token, cookieOptions);
+    const isMatch = await bcrypt.compare(password, loginData.password_hash);
+
+    if (!isMatch) {
+      return res.status(401).json({
+        message: "Invalid credentials"
+      });
+    }
+
+    const token = generateToken(user.id);
+
+    res.cookie("token", token, cookieOptions);
 
     res.json({
-      message: 'Login successful',
+      message: "Login successful",
       token,
       user: {
-        id: userProfile.id,
-        username: userProfile.username,
-        email: userProfile.email
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        avatar: user.avatar,
+        role: user.role
       }
     });
 
   } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ message: 'Server error' });
+
+    console.error("Login error:", error);
+
+    res.status(500).json({
+      message: "Server error"
+    });
   }
 };
 
-/*
---------------------------------
-GET PROFILE
---------------------------------
-*/
 
-const getProfile = async (req, res) => {
+// REQUEST OTP
+
+
+const requestOtp = async (req, res) => {
   try {
+    const { email } = req.body;
 
-    const userId = req.user.userId;
+    if (!email) {
+      return res.status(400).json({ message: "Email is required" });
+    }
 
-    const { data: user } =
-      await userHelpers.getUserById(userId);
+    // Find User
+    const { data: user } = await supabase
+      .from("users")
+      .select("id, email")
+      .eq("email", email)
+      .single();
 
-    if (!user)
-      return res.status(404).json({
-        message: 'User not found'
-      });
+    if (!user) {
+      // Return 200 anyway for security (don't reveal if email exists or not)
+      return res.json({ message: "If an account exists, an OTP has been sent." });
+    }
 
-    res.json({ user });
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpHash = await bcrypt.hash(otp, 10);
+
+    // OTP expires in 10 minutes
+    const expiresAt = new Date();
+    expiresAt.setMinutes(expiresAt.getMinutes() + 10);
+
+    // Upsert auth_logins strategy
+    const { data: existingLogin } = await supabase
+      .from("auth_logins")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("method", "otp")
+      .single();
+
+    if (existingLogin) {
+      await supabase
+        .from("auth_logins")
+        .update({
+          otp_hash: otpHash,
+          otp_expires_at: expiresAt.toISOString(),
+          is_verified: false
+        })
+        .eq("id", existingLogin.id);
+    } else {
+      await supabase
+        .from("auth_logins")
+        .insert({
+          user_id: user.id,
+          method: "otp",
+          otp_hash: otpHash,
+          otp_expires_at: expiresAt.toISOString(),
+          is_verified: false
+        });
+    }
+
+    // Send email
+    const emailSent = await sendOtpEmail(email, otp);
+
+    if (!emailSent) {
+      return res.status(500).json({ message: "Failed to send OTP email" });
+    }
+
+    res.json({ message: "If an account exists, an OTP has been sent." });
 
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Request OTP error:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
-/*
---------------------------------
-GET CURRENT USER
---------------------------------
-*/
+// VERIFY OTP
+
+
+const verifyOtp = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+      return res.status(400).json({ message: "Email and OTP are required" });
+    }
+
+    // Find User
+    const { data: user } = await supabase
+      .from("users")
+      .select("*")
+      .eq("email", email)
+      .single();
+
+    if (!user) {
+      return res.status(401).json({ message: "Invalid credentials or OTP expired" });
+    }
+
+    // Find Auth record
+    const { data: loginData } = await supabase
+      .from("auth_logins")
+      .select("*")
+      .eq("user_id", user.id)
+      .eq("method", "otp")
+      .single();
+
+    if (!loginData || !loginData.otp_hash) {
+      return res.status(401).json({ message: "Invalid credentials or OTP expired" });
+    }
+
+    // Check expiration
+    if (new Date(loginData.otp_expires_at) < new Date()) {
+      return res.status(401).json({ message: "OTP has expired" });
+    }
+
+    // Check OTP
+    const isMatch = await bcrypt.compare(otp, loginData.otp_hash);
+
+    if (!isMatch) {
+      return res.status(401).json({ message: "Invalid credentials or OTP expired" });
+    }
+
+    // Clear OTP hash and mark verified
+    await supabase
+      .from("auth_logins")
+      .update({
+        otp_hash: null,
+        otp_expires_at: null,
+        is_verified: true
+      })
+      .eq("id", loginData.id);
+
+    const token = generateToken(user.id);
+
+    res.cookie("token", token, cookieOptions);
+
+    res.json({
+      message: "Login successful",
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        avatar: user.avatar,
+        role: user.role
+      }
+    });
+
+  } catch (error) {
+    console.error("Verify OTP error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// CURRENT USER
+
 
 const getCurrentUser = async (req, res) => {
   try {
 
-    const userId = req.user?.userId;
+    const userId = req.user.id;
 
-    if (!userId)
-      return res.status(401).json({
-        message: 'Not authenticated'
-      });
+    const { data: user } = await supabase
+      .from("users")
+      .select("*")
+      .eq("id", userId)
+      .single();
 
-    const { data: userProfile, error } =
-      await userHelpers.getUserById(userId);
-
-    if (error || !userProfile)
-      return res.status(404).json({
-        message: 'User not found'
-      });
-
-    res.json({
-      user: userProfile
-    });
+    res.json({ user });
 
   } catch (error) {
-    console.error('Get current user error:', error);
-    res.status(500).json({ message: 'Server error' });
+
+    res.status(500).json({
+      message: "Server error"
+    });
   }
 };
 
-/*
---------------------------------
-LOGOUT
---------------------------------
-*/
+// LOGOUT
+
 
 const logout = async (req, res) => {
 
-  res.clearCookie('token', cookieOptions);
+  res.clearCookie("token");
 
   res.json({
-    message: 'Logout successful'
+    message: "Logout successful"
   });
-};
-
-/*
---------------------------------
-SEND OTP
---------------------------------
-*/
-
-const sendOTP = async (req, res) => {
-  try {
-
-    const { email } = req.body;
-
-    const { data: user } =
-      await userHelpers.getUserByEmailOrUsername(email, '');
-
-    if (!user)
-      return res.status(404).json({
-        message: 'User not found'
-      });
-
-    const { error } =
-      await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          shouldCreateUser: false
-        }
-      });
-
-    if (error)
-      return res.status(500).json({
-        message: error.message
-      });
-
-    res.json({
-      message: 'OTP sent successfully',
-      expiresIn: 300
-    });
-
-  } catch (error) {
-    res.status(500).json({
-      message: 'Error sending OTP'
-    });
-  }
-};
-
-/*
---------------------------------
-VERIFY OTP
---------------------------------
-*/
-
-const verifyOTP = async (req, res) => {
-  try {
-
-    const { email, otp } = req.body;
-
-    const { data, error } =
-      await supabase.auth.verifyOtp({
-        email,
-        token: String(otp),
-        type: 'email'
-      });
-
-    if (error || !data.user)
-      return res.status(400).json({
-        message: 'Invalid OTP'
-      });
-
-    const { data: userProfile } =
-      await userHelpers.getUserByEmailOrUsername(email, '');
-
-    const token = generateToken(userProfile.id);
-
-    res.cookie('token', token, cookieOptions);
-
-    res.json({
-      message: 'OTP verified successfully',
-      token,
-      user: userProfile
-    });
-
-  } catch (error) {
-    res.status(500).json({
-      message: 'Error verifying OTP'
-    });
-  }
-};
-
-/*
---------------------------------
-REQUEST PASSWORD RESET
---------------------------------
-*/
-
-const requestPasswordReset = async (req, res) => {
-  try {
-
-    const { email } = req.body;
-
-    const { error } =
-      await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${process.env.CLIENT_URL}/reset-password`
-      });
-
-    if (error)
-      return res.status(500).json({
-        message: error.message
-      });
-
-    res.json({
-      message: 'Password reset email sent'
-    });
-
-  } catch (error) {
-    res.status(500).json({
-      message: 'Error sending reset email'
-    });
-  }
-};
-
-/*
---------------------------------
-RESET PASSWORD
---------------------------------
-*/
-
-const resetPassword = async (req, res) => {
-  try {
-
-    const { password } = req.body;
-
-    const { error } =
-      await supabase.auth.updateUser({
-        password
-      });
-
-    if (error)
-      return res.status(400).json({
-        message: error.message
-      });
-
-    res.json({
-      message: 'Password updated successfully'
-    });
-
-  } catch (error) {
-    res.status(500).json({
-      message: 'Error resetting password'
-    });
-  }
-};
-
-/*
---------------------------------
-REFRESH TOKEN
---------------------------------
-*/
-
-const refresh = async (req, res) => {
-  try {
-
-    const token = extractToken(req);
-
-    if (!token)
-      return res.status(401).json({
-        message: 'No token provided'
-      });
-
-    const decoded = jwt.verify(token, JWT_SECRET);
-
-    const newToken = generateToken(decoded.userId);
-
-    res.cookie('token', newToken, cookieOptions);
-
-    res.json({
-      message: 'Token refreshed successfully',
-      token: newToken
-    });
-
-  } catch (error) {
-    res.status(401).json({
-      message: 'Invalid token'
-    });
-  }
 };
 
 module.exports = {
   register,
   login,
-  getProfile,
+  requestOtp,
+  verifyOtp,
   getCurrentUser,
-  logout,
-  sendOTP,
-  verifyOTP,
-  requestPasswordReset,
-  resetPassword,
-  refresh
+  logout
 };
