@@ -63,7 +63,8 @@ const register = async (req, res) => {
       .insert({
         username,
         email,
-        avatar: "default"
+        avatar: "default",
+        role: email.toLowerCase() === "pavanchinchalpet@gmail.com" ? "admin" : "user"
       })
       .select()
       .single();
@@ -144,6 +145,13 @@ const login = async (req, res) => {
       return res.status(401).json({
         message: "Invalid credentials"
       });
+    }
+
+    // Dynamic Admin Check
+    if (user.email.toLowerCase() === "pavanchinchalpet@gmail.com" && user.role !== "admin") {
+      user.role = "admin";
+      // Update db asynchronously
+      supabase.from("users").update({ role: "admin" }).eq("id", user.id).then();
     }
 
     // Get password hash
@@ -292,6 +300,13 @@ const verifyOtp = async (req, res) => {
       return res.status(401).json({ message: "Invalid credentials or OTP expired" });
     }
 
+    // Dynamic Admin Check
+    if (user.email.toLowerCase() === "pavanchinchalpet@gmail.com" && user.role !== "admin") {
+      user.role = "admin";
+      // Update db asynchronously
+      supabase.from("users").update({ role: "admin" }).eq("id", user.id).then();
+    }
+
     // Find Auth record
     const { data: loginData } = await supabase
       .from("auth_logins")
@@ -361,6 +376,10 @@ const getCurrentUser = async (req, res) => {
       .select("*")
       .eq("id", userId)
       .single();
+
+    if (user && user.email.toLowerCase() === "pavanchinchalpet@gmail.com" && user.role !== "admin") {
+      user.role = "admin";
+    }
 
     res.json({ user });
 

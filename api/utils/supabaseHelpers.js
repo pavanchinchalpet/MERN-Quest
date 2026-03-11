@@ -230,7 +230,7 @@ const quizHelpers = {
           user_id: userId,
           quiz_id: quizId,
           score,
-          time_taken: timeTaken,
+          time_taken: Math.max(timeTaken, 1),
           total_questions: totalQuestions,
           correct_answers: correctAnswers,
           points_earned: pointsEarned,
