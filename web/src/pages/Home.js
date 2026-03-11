@@ -107,7 +107,12 @@ const Home = () => {
 
         const requests = [
           api.get('/user/stats'),
-          api.get('/user/achievements'),
+          api.get('/user/achievements').catch(err => {
+            if (err.response && err.response.status === 404) {
+              return { data: [] };
+            }
+            throw err;
+          }),
           api.get('/user/leaderboard')
         ];
 

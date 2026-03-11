@@ -1,8 +1,8 @@
-import React, { Suspense } from 'react';
+import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-const Landing = React.lazy(() => import('../pages/Landing'));
+import Landing from '../pages/Landing';
 
 const LandingRedirect = () => {
   const { user, loading } = useAuth();
@@ -22,16 +22,7 @@ const LandingRedirect = () => {
   }
 
   // If not logged in, show landing page
-  return (
-    <Suspense fallback={
-      <div className="text-center" style={{ padding: '50px' }}>
-        <div className="spinner"></div>
-        <p className="mt-3">Loading...</p>
-      </div>
-    }>
-      <Landing />
-    </Suspense>
-  );
+  return <Landing />;
 };
 
 export default LandingRedirect;

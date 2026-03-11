@@ -43,8 +43,8 @@ const Admin = () => {
     setLoading(true);
     try {
       const [usersRes, quizzesRes] = await Promise.all([
-        api.get('/api/admin/users').catch(() => ({ data: [] })),
-        api.get('/api/admin/quizzes').catch(() => ({ data: { quizzes: [] } }))
+        api.get('/admin/users').catch(() => ({ data: [] })),
+        api.get('/admin/quizzes').catch(() => ({ data: { quizzes: [] } }))
       ]);
       
       setUsers(usersRes.data || []);
@@ -84,7 +84,7 @@ const Admin = () => {
       const formData = new FormData();
       formData.append('quizFile', file);
       
-      await api.post('/api/admin/upload-quiz', formData, {
+      await api.post('/admin/upload-quiz', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       
@@ -103,7 +103,7 @@ const Admin = () => {
     }
     
     try {
-      await api.post('/api/admin/quizzes', newQuiz);
+      await api.post('/admin/quizzes', newQuiz);
       alert('Quiz created successfully!');
       setNewQuiz({ title: '', description: '', category: 'Node.js', difficulty: 'Easy', timeLimit: 30 });
       loadDashboardData();
@@ -120,7 +120,7 @@ const Admin = () => {
     }
     
     try {
-      await api.post('/api/admin/questions', newQuestion);
+      await api.post('/admin/questions', newQuestion);
       alert('Question added successfully!');
       setNewQuestion({
         question: '',
@@ -139,7 +139,7 @@ const Admin = () => {
   const deleteQuiz = async (quizId) => {
     if (window.confirm('Are you sure you want to delete this quiz?')) {
       try {
-        await api.delete(`/api/admin/quizzes/${quizId}`);
+        await api.delete(`/admin/quizzes/${quizId}`);
         alert('Quiz deleted successfully!');
         loadDashboardData();
       } catch (error) {
@@ -151,7 +151,7 @@ const Admin = () => {
 
   const loadQuizQuestions = async (quizId) => {
     try {
-      const response = await api.get(`/api/admin/quizzes/${quizId}/questions`);
+      const response = await api.get(`/admin/quizzes/${quizId}/questions`);
       setSelectedQuizQuestions(response.data);
       setEditingQuiz(quizzes.find(q => q.id === quizId));
     } catch (error) {
@@ -172,7 +172,7 @@ const Admin = () => {
 
   const updateQuiz = async () => {
     try {
-      await api.put(`/api/admin/quizzes/${editingQuiz.id}`, editingQuiz);
+      await api.put(`/admin/quizzes/${editingQuiz.id}`, editingQuiz);
       alert('Quiz updated successfully!');
       setEditingQuiz(null);
       loadDashboardData();

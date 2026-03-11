@@ -22,7 +22,12 @@ const Profile = () => {
       const achievementsResponse = await api.get('/user/achievements');
       setAchievements(achievementsResponse.data);
     } catch (error) {
-      console.error('Error loading user data:', error);
+      if (error.response && error.response.status === 404) {
+        console.warn('/user/achievements not implemented. Using empty array.');
+        setAchievements([]);
+      } else {
+        console.error('Error loading user data:', error);
+      }
     } finally {
       setLoading(false);
     }
