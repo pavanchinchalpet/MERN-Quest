@@ -14,9 +14,18 @@ SOCKET.IO SETUP
 --------------------------------
 */
 
+const allowedOrigins = [
+  process.env.CLIENT_URL,
+  "https://learn-mern-pied.vercel.app",
+  "https://learn-mern-chinchalpetpavankumar-2177s-projects.vercel.app",
+  "https://learn-mern-tjz5.onrender.com",
+  "http://localhost:3000",
+  "http://127.0.0.1:3000"
+];
+
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL || "http://localhost:3000",
+    origin: allowedOrigins,
     methods: ["GET", "POST"],
     credentials: true
   }
