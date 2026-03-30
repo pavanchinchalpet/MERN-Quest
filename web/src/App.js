@@ -13,6 +13,9 @@ const Admin = lazy(() => import('./pages/Admin'));
 const ProtectedRoute = lazy(() => import('./components/ProtectedRoute'));
 const AdminRoute = lazy(() => import('./components/AdminRoute'));
 const Navbar = lazy(() => import('./components/Navbar'));
+const Practice = lazy(() => import('./pages/Practice'));
+const Assessments = lazy(() => import('./pages/Assessments'));
+const PracticeWorkspace = lazy(() => import('./pages/PracticeWorkspace'));
 
 function AppShell() {
   const location = useLocation();
@@ -39,6 +42,9 @@ function AppShell() {
             <Route path="/quiz" element={<ProtectedRoute><Quiz /></ProtectedRoute>} />
             <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
             <Route path="/leaderboard" element={<ProtectedRoute><Leaderboard /></ProtectedRoute>} />
+            <Route path="/practice" element={<ProtectedRoute><Practice /></ProtectedRoute>} />
+            <Route path="/practice/:id" element={<ProtectedRoute><PracticeWorkspace /></ProtectedRoute>} />
+            <Route path="/assessments" element={<ProtectedRoute><Assessments /></ProtectedRoute>} />
             <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

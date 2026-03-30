@@ -1,7 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import api, { getErrorMessage, unwrapResponse } from '../services/api';
 
 const Quiz = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [questions, setQuestions] = useState([]);
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -34,6 +37,46 @@ const Quiz = () => {
 
     loadQuizCenter();
   }, []);
+
+  const startQuiz = useCallback((categoryId) => {
+    const pool = questions.filter((item) => categoryId === 'all' || item.category_id === categoryId);
+    const nextQuestions = pool.slice(0, 10);
+
+    if (nextQuestions.length === 0) {
+      setError('No challenges available for that module yet.');
+      return;
+    }
+
+    setSelectedCategory(categoryId);
+    setSelectedQuestions(nextQuestions);
+    setAnswers({});
+    setCurrentIndex(0);
+    setResults(null);
+    setTimeLeft(Math.max(nextQuestions.length * 45, 120));
+    setPhase('active');
+    setError('');
+  }, [questions]);
+
+  // Handle deep-linking to a specific quiz via ?id=...
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const quizId = params.get('id');
+    if (quizId && questions.length > 0 && phase === 'catalog') {
+      const question = questions.find(q => q.id === quizId);
+      if (question) {
+        startQuiz(question.category_id || 'all');
+      }
+    }
+  }, [questions, phase, startQuiz, location.search]);
+
+  const handleReturnToDashboard = () => {
+    setPhase('catalog');
+    // Clear the URL parameter so it doesn't trigger again
+    navigate('/assessments', { replace: true }); 
+    // Actually, 'assessments' is the list page. If they are on /quiz, 
+    // they should go back to /assessments or just clear the search.
+    // The user said "Return to dashboard" which usually means the list page in this UI.
+  };
 
   const handleSubmit = useCallback(async () => {
     if (!selectedQuestions.length || submitting) {
@@ -92,24 +135,7 @@ const Quiz = () => {
 
   const visibleCategories = categoryCards.filter((category) => category.questionCount > 0);
 
-  const startQuiz = (categoryId) => {
-    const pool = questions.filter((item) => categoryId === 'all' || item.category_id === categoryId);
-    const nextQuestions = pool.slice(0, 10);
 
-    if (nextQuestions.length === 0) {
-      setError('No challenges available for that module yet.');
-      return;
-    }
-
-    setSelectedCategory(categoryId);
-    setSelectedQuestions(nextQuestions);
-    setAnswers({});
-    setCurrentIndex(0);
-    setResults(null);
-    setTimeLeft(Math.max(nextQuestions.length * 45, 120));
-    setPhase('active');
-    setError('');
-  };
 
   const formatTime = (seconds) => {
     const m = Math.floor(seconds / 60);
@@ -265,7 +291,7 @@ const Quiz = () => {
             </div>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <button type="button" onClick={() => setPhase('catalog')} className="btn-secondary w-full sm:w-auto px-8">Return to Dashboard</button>
+              <button type="button" onClick={handleReturnToDashboard} className="btn-secondary w-full sm:w-auto px-8">Return to Dashboard</button>
               <button type="button" onClick={() => startQuiz(selectedCategory)} className="btn-primary w-full sm:w-auto px-8">Try Again</button>
             </div>
           </div>
@@ -341,7 +367,7 @@ const Quiz = () => {
             </span>
             <span className="font-mono text-lg font-bold text-text-primary">{formatTime(timeLeft)}</span>
           </div>
-          <button type="button" onClick={() => setPhase('catalog')} className="text-sm font-bold text-text-tertiary hover:text-brand-danger transition-colors uppercase tracking-wider">Abort</button>
+          <button type="button" onClick={handleReturnToDashboard} className="text-sm font-bold text-text-tertiary hover:text-brand-danger transition-colors uppercase tracking-wider">Abort</button>
         </div>
         
         <div className="flex-grow overflow-y-auto p-8 md:p-12">

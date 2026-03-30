@@ -84,13 +84,13 @@ const Home = () => {
               Continue honing your skills. Complete coding challenges to master new frameworks and climb the global rankings.
             </p>
             <div className="mt-8 flex flex-wrap gap-4">
-              <Link to="/quiz" className="btn-primary flex items-center gap-2">
+              <Link to="/assessments" className="btn-primary flex items-center gap-2">
                 Evaluate Skills
                 <svg className="w-4 h-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
                 </svg>
               </Link>
-              <Link to="/leaderboard" className="btn-secondary">Global Standings</Link>
+              <Link to="/practice" className="btn-secondary">Practice DSA</Link>
             </div>
           </div>
           
@@ -119,7 +119,7 @@ const Home = () => {
               <div>
                 <h2 className="heading-3 mb-0">Recent Submissions</h2>
               </div>
-              <Link to="/quiz" className="text-sm font-bold text-brand-primary hover:underline transition-colors">
+              <Link to="/profile" className="text-sm font-bold text-brand-primary hover:underline transition-colors">
                 View All
               </Link>
             </div>
@@ -134,7 +134,7 @@ const Home = () => {
                   </div>
                   <h3 className="text-lg font-bold text-text-primary">No submissions found</h3>
                   <p className="text-text-secondary mt-1 max-w-sm">Complete your first coding challenge to establish your baseline score.</p>
-                  <Link to="/quiz" className="btn-primary mt-6">Solve Challenge</Link>
+                  <Link to="/practice" className="btn-primary mt-6">Solve Challenge</Link>
                 </div>
               ) : (
                 (stats?.recentScores || []).map((attempt) => (
@@ -180,8 +180,8 @@ const Home = () => {
             </div>
             <div className="p-4 space-y-3">
               {[
-                { title: 'Solve Algorithms', desc: 'Sharpen your logic', action: '/quiz', type: 'primary' },
-                { title: 'Global Rankings', desc: 'See where you stand', action: '/leaderboard', type: 'secondary' }
+                { title: 'Solve Algorithms', desc: 'Sharpen your logic', action: '/practice', type: 'primary' },
+                { title: 'Get Certified', desc: 'Verify skills', action: '/assessments', type: 'secondary' }
               ].map((step, idx) => (
                 <div key={idx} className="group p-4 rounded-lg bg-dark-bg border border-dark-border hover:shadow-sm transition-all flex items-center justify-between gap-4 cursor-pointer">
                   <div>

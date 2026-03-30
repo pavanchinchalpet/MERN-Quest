@@ -9,9 +9,9 @@ const Navbar = () => {
 
   const links = [
     { to: '/home', label: 'Dashboard' },
-    { to: '/quiz', label: 'Practice' },
-    { to: '/leaderboard', label: 'Leaderboard' },
-    { to: '/profile', label: 'Profile' }
+    { to: '/practice', label: 'Practice' },
+    { to: '/assessments', label: 'Assessments' },
+    { to: '/leaderboard', label: 'Leaderboard' }
   ];
 
   if (user?.role === 'admin') {

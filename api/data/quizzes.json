@@ -1,0 +1,67 @@
+[
+  {
+    "title": "Javascript Hoisting",
+    "description": "Fundamental execution context knowledge",
+    "question_text": "What is the output of: console.log(a); var a = 5;",
+    "options": ["5", "undefined", "ReferenceError", "null"],
+    "answer": "undefined",
+    "explanation": "Variables declared with 'var' are hoisted to the top of their scope and initialized with 'undefined'.",
+    "difficulty": "easy",
+    "points": 10,
+    "time_limit": 30
+  },
+  {
+    "title": "React useEffect Cleanup",
+    "description": "Managing side effects",
+    "question_text": "When does the cleanup function in useEffect run?",
+    "options": [
+      "Only when the component unmounts",
+      "Before every re-render and on unmount",
+      "After every render",
+      "Never"
+    ],
+    "answer": "Before every re-render and on unmount",
+    "explanation": "The cleanup function runs before the effect is re-executed to prevent memory leaks and on unmount.",
+    "difficulty": "medium",
+    "points": 20,
+    "time_limit": 45
+  },
+  {
+    "title": "Closures in JS",
+    "description": "Scope and memory",
+    "question_text": "A function that remembers its outer variables even after the outer function has returned is called a:",
+    "options": ["Recursion", "Callback", "Closure", "Higher-order function"],
+    "answer": "Closure",
+    "explanation": "A closure is the combination of a function bundled together (enclosed) with references to its surrounding state (the lexical environment).",
+    "difficulty": "easy",
+    "points": 10,
+    "time_limit": 30
+  },
+  {
+    "title": "CSS Flexbox Centering",
+    "description": "Layout basics",
+    "question_text": "Which property combo centers children in Flexbox?",
+    "options": [
+      "justify-content: center; align-items: center;",
+      "text-align: center; vertical-align: middle;",
+      "margin: auto;",
+      "display: block; margin: 0 auto;"
+    ],
+    "answer": "justify-content: center; align-items: center;",
+    "explanation": "Justify-content centers along the main axis, and align-items centers along the cross axis.",
+    "difficulty": "easy",
+    "points": 5,
+    "time_limit": 20
+  },
+  {
+    "title": "Node.js Event Loop",
+    "description": "Asynchronous architecture",
+    "question_text": "Which phase of the Event Loop handles setTimeout callbacks?",
+    "options": ["Poll", "Check", "Timers", "Close"],
+    "answer": "Timers",
+    "explanation": "The Timers phase handles callbacks scheduled by setTimeout() and setInterval().",
+    "difficulty": "hard",
+    "points": 30,
+    "time_limit": 60
+  }
+]

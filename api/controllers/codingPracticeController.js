@@ -41,7 +41,43 @@ const getPracticeById = async (req, res, next) => {
   }
 };
 
+// @desc    Submit practice result
+// @route   POST /api/practices/submit
+// @access  Private
+const submitPractice = async (req, res, next) => {
+  try {
+    const { id, score = 100 } = req.body;
+    
+    // For now, we simply record the completion. 
+    // This can be expanded to check actual code execution results.
+    const { error: scoreError } = await supabase.from('quiz_scores').insert([{
+      user_id: req.user.id,
+      score: score,
+      total_questions: 1,
+      correct_answers: score === 100 ? 1 : 0,
+      points_earned: score === 100 ? 50 : 0, // DSA worth more
+      streak: (req.user.streak || 0) + 1
+    }]);
+
+    if (scoreError) throw new Error(scoreError.message);
+
+    // Update user XP
+    const { data: user } = await supabase.from('users').select('points').eq('id', req.user.id).single();
+    const newPoints = (user?.points || 0) + (score === 100 ? 50 : 0);
+    
+    await supabase.from('users').update({ 
+      points: newPoints,
+      streak: (req.user.streak || 0) + 1
+    }).eq('id', req.user.id);
+
+    res.json({ success: true, pointsEarned: score === 100 ? 50 : 0 });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getPractices,
-  getPracticeById
+  getPracticeById,
+  submitPractice
 };
