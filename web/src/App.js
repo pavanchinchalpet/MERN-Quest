@@ -3,38 +3,42 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'r
 import { AuthProvider } from './context/AuthContext';
 import Login from './pages/Login';
 import Register from './pages/Register';
-
 import LandingRedirect from './components/LandingRedirect';
+
 const Home = lazy(() => import('./pages/Home'));
 const Quiz = lazy(() => import('./pages/Quiz'));
 const Profile = lazy(() => import('./pages/Profile'));
 const Leaderboard = lazy(() => import('./pages/Leaderboard'));
 const Admin = lazy(() => import('./pages/Admin'));
-const PrivateRoute = lazy(() => import('./components/ProtectedRoute'));
+const ProtectedRoute = lazy(() => import('./components/ProtectedRoute'));
 const AdminRoute = lazy(() => import('./components/AdminRoute'));
 const Navbar = lazy(() => import('./components/Navbar'));
 
-
-
 function AppShell() {
   const location = useLocation();
-  const isAuth = location.pathname === '/login' || location.pathname === '/register' || location.pathname === '/auth';
+  const isAuth = location.pathname === '/login' || location.pathname === '/register';
   const isLanding = location.pathname === '/';
   const hideNavbar = isAuth || isLanding;
 
   return (
-    <div className="App min-h-screen bg-quest-gradient">
+    <div className="min-h-screen bg-dark-bg text-text-primary flex flex-col">
       {!hideNavbar && <Navbar />}
-      <main>
-        <Suspense fallback={null}>
+      <main className={`flex-grow flex flex-col w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 ${hideNavbar ? '' : 'pt-20 pb-8'}`}>
+        <Suspense
+          fallback={
+            <div className="flex-grow grid place-items-center">
+              <div className="h-10 w-10 animate-spin rounded-full border-4 border-dark-border border-t-brand-primary" />
+            </div>
+          }
+        >
           <Routes>
             <Route path="/" element={<LandingRedirect />} />
-            <Route path="/home" element={<PrivateRoute><Home /></PrivateRoute>} />
+            <Route path="/home" element={<ProtectedRoute><Home /></ProtectedRoute>} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
-            <Route path="/quiz" element={<PrivateRoute><Quiz /></PrivateRoute>} />
-            <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
-            <Route path="/leaderboard" element={<PrivateRoute><Leaderboard /></PrivateRoute>} />
+            <Route path="/quiz" element={<ProtectedRoute><Quiz /></ProtectedRoute>} />
+            <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+            <Route path="/leaderboard" element={<ProtectedRoute><Leaderboard /></ProtectedRoute>} />
             <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

@@ -1,20 +1,15 @@
 const express = require('express');
-const { auth } = require('../middleware/auth');
-const {
-  getUserProfile,
-  updateUserProfile,
-  getLeaderboard,
-  getUserStats
-} = require('../controllers/supabaseUserController');
+const { getUsers, getProfile, getStats, getAchievements, getLeaderboard, updateProfile } = require('../controllers/userController');
+const protect = require('../middleware/authMiddleware');
+const admin = require('../middleware/adminMiddleware');
 
 const router = express.Router();
 
-router.get('/profile', auth, getUserProfile);
-
-router.put('/profile', auth, updateUserProfile);
-
-router.get('/leaderboard', getLeaderboard);
-
-router.get('/stats', auth, getUserStats);
+router.get('/profile', protect, getProfile);
+router.get('/stats', protect, getStats);
+router.get('/achievements', protect, getAchievements);
+router.get('/leaderboard', protect, getLeaderboard);
+router.put('/profile', protect, updateProfile);
+router.get('/', protect, admin, getUsers);
 
 module.exports = router;

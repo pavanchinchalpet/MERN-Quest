@@ -1,6 +1,15 @@
-import "@testing-library/jest-dom";
+import '@testing-library/jest-dom';
 
-jest.mock("axios", () => ({
-  get: jest.fn(),
-  post: jest.fn(),
+jest.mock('axios', () => ({
+  create: jest.fn(() => ({
+    get: jest.fn(),
+    post: jest.fn(),
+    put: jest.fn(),
+    delete: jest.fn(),
+    interceptors: {
+      response: {
+        use: jest.fn()
+      }
+    }
+  }))
 }));

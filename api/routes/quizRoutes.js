@@ -1,34 +1,18 @@
 const express = require('express');
-const { body } = require('express-validator');
-const { auth } = require('../middleware/auth');
-const {
-  getQuizzes,
-  getQuizById,
-  getQuizQuestions,
-  submitQuiz,
-  getQuizCategories
-} = require('../controllers/supabaseQuizController');
+const { getQuizzes, getQuizById, createQuiz, getCategories, submitQuiz } = require('../controllers/quizController');
+const protect = require('../middleware/authMiddleware');
+const admin = require('../middleware/adminMiddleware');
 
 const router = express.Router();
 
-// Get all quizzes
-router.get('/', getQuizzes);
+router.get('/categories', protect, getCategories);
+router.post('/submit', protect, submitQuiz);
 
-// Get quiz categories
-router.get('/categories', getQuizCategories);
+router.route('/')
+  .get(protect, getQuizzes)
+  .post(protect, admin, createQuiz);
 
-// Get quiz by id
-router.get('/:id', getQuizById);
-
-// Get questions
-router.get('/:id/questions', getQuizQuestions);
-
-// Submit quiz
-router.post('/submit',
-  auth,
-  body('answers').isArray(),
-  body('timeTaken').isInt(),
-  submitQuiz
-);
+router.route('/:id')
+  .get(protect, getQuizById);
 
 module.exports = router;

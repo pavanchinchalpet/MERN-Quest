@@ -1,13 +1,16 @@
-import { render, screen } from "@testing-library/react";
-import Navbar from "../components/Navbar";
-import { AuthProvider } from "../context/AuthContext";
+import { render, screen } from '@testing-library/react';
+import { BrowserRouter } from 'react-router-dom';
+import Navbar from '../components/Navbar';
+import { AuthContext } from '../context/AuthContext';
 
-test("renders navbar", () => {
+test('renders navbar links', () => {
   render(
-    <AuthProvider>
-      <Navbar />
-    </AuthProvider>
+    <AuthContext.Provider value={{ user: { username: 'Pavan', role: 'user' }, logout: jest.fn() }}>
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <Navbar />
+      </BrowserRouter>
+    </AuthContext.Provider>
   );
 
-  expect(screen.getByText(/quiz/i)).toBeInTheDocument();
+  expect(screen.getByText(/quiz center/i)).toBeInTheDocument();
 });

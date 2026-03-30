@@ -1,26 +1,16 @@
-import { render, screen } from "@testing-library/react";
-import Login from "../pages/Login";
-import { BrowserRouter } from "react-router-dom";
-import { AuthContext } from "../context/AuthContext";
+import { render, screen } from '@testing-library/react';
+import { BrowserRouter } from 'react-router-dom';
+import Login from '../pages/Login';
+import { AuthContext } from '../context/AuthContext';
 
-const mockAuth = {
-  user: null,
-  loading: false,
-  login: jest.fn(() => Promise.resolve({ success: true })),
-  sendOTP: jest.fn(() => Promise.resolve({ success: true })),
-  verifyOTP: jest.fn(() => Promise.resolve({ success: true })),
-  error: null,
-  setError: jest.fn()
-};
-
-test("renders login page", () => {
+test('renders login page', () => {
   render(
-    <AuthContext.Provider value={mockAuth}>
-      <BrowserRouter>
+    <AuthContext.Provider value={{ user: null, loading: false, login: jest.fn() }}>
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Login />
       </BrowserRouter>
     </AuthContext.Provider>
   );
 
-  expect(screen.getByText(/sign in/i)).toBeInTheDocument();
+  expect(screen.getByText(/access dashboard/i)).toBeInTheDocument();
 });

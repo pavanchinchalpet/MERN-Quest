@@ -1,1013 +1,382 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import api from '../services/api';
+import React, { useEffect, useMemo, useState } from 'react';
+import api, { getErrorMessage, unwrapResponse } from '../services/api';
+
+const initialQuestion = {
+  title: '',
+  description: '',
+  question_text: '',
+  optionA: '',
+  optionB: '',
+  optionC: '',
+  optionD: '',
+  answer: '',
+  explanation: '',
+  difficulty: 'Easy',
+  points: 10,
+  time_limit: 30,
+  category_id: ''
+};
 
 const Admin = () => {
-  const [activeTab, setActiveTab] = useState('dashboard');
   const [users, setUsers] = useState([]);
-  const [quizzes, setQuizzes] = useState([]);
+  const [questions, setQuestions] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [formData, setFormData] = useState(initialQuestion);
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({
-    totalUsers: 0,
-    totalQuizzes: 0,
-    totalQuestions: 0,
-    totalSessions: 0
-  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
-  // Quiz creation states
-  const [newQuiz, setNewQuiz] = useState({
-    title: '',
-    description: '',
-    category: 'Node.js',
-    difficulty: 'Easy',
-    timeLimit: 30
-  });
-  
-  const [newQuestion, setNewQuestion] = useState({
-    question: '',
-    options: ['', '', '', ''],
-    correctAnswer: 0,
-    explanation: '',
-    quizId: ''
-  });
-  
-  const [editingQuiz, setEditingQuiz] = useState(null);
-  const [selectedQuizQuestions, setSelectedQuizQuestions] = useState([]);
-
-  // Simple quiz filters
-  const [quizFilters, setQuizFilters] = useState({
-    search: '',
-    category: ''
-  });
-
-  const loadDashboardData = useCallback(async () => {
-    setLoading(true);
+  const loadAdminData = async () => {
     try {
-      const [usersRes, quizzesRes] = await Promise.all([
-        api.get('/admin/users').catch(() => ({ data: [] })),
-        api.get('/admin/quizzes').catch(() => ({ data: { quizzes: [] } }))
+      const [usersResponse, quizzesResponse, categoriesResponse] = await Promise.all([
+        api.get('/admin/users'),
+        api.get('/admin/quizzes'),
+        api.get('/quiz/categories')
       ]);
-      
-      setUsers(usersRes.data || []);
-      setQuizzes(quizzesRes.data?.quizzes || []);
-      setStats({
-        totalUsers: usersRes.data?.length || 0,
-        totalQuizzes: quizzesRes.data?.quizzes?.length || 0,
-        totalQuestions: 0,
-        totalSessions: 0
-      });
-    } catch (error) {
-      console.error('Error loading dashboard:', error);
+
+      setUsers(unwrapResponse(usersResponse) || []);
+      setQuestions(unwrapResponse(quizzesResponse) || []);
+      setCategories(unwrapResponse(categoriesResponse) || []);
+    } catch (err) {
+      setError(getErrorMessage(err, 'Unable to load admin workspace'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  };
 
   useEffect(() => {
-    loadDashboardData();
-  }, [loadDashboardData]);
+    loadAdminData();
+  }, []);
 
-  const handleFilterChange = (key, value) => {
-    setQuizFilters({ ...quizFilters, [key]: value });
-  };
+  const questionSummary = useMemo(() => {
+    return questions.reduce((accumulator, item) => {
+      const key = item.category_id || 'uncategorized';
+      accumulator[key] = (accumulator[key] || 0) + 1;
+      return accumulator;
+    }, {});
+  }, [questions]);
 
-  const filteredQuizzes = quizzes.filter(quiz => {
-    if (quizFilters.search && !quiz.title.toLowerCase().includes(quizFilters.search.toLowerCase())) return false;
-    if (quizFilters.category && quiz.category !== quizFilters.category) return false;
-    return true;
-  });
-
-  const handleFileUpload = async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
+  const handleCreate = async (event) => {
+    event.preventDefault();
+    setSaving(true);
+    setError('');
+    setSuccess('');
 
     try {
-      const formData = new FormData();
-      formData.append('quizFile', file);
-      
-      await api.post('/admin/upload-quiz', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+      await api.post('/admin/quizzes', {
+        title: formData.title,
+        description: formData.description,
+        question_text: formData.question_text,
+        options: [formData.optionA, formData.optionB, formData.optionC, formData.optionD],
+        answer: formData.answer,
+        explanation: formData.explanation,
+        difficulty: formData.difficulty,
+        points: Number(formData.points),
+        time_limit: Number(formData.time_limit),
+        category_id: formData.category_id
       });
+      setFormData(initialQuestion);
+      setSuccess('Quiz question created successfully.');
+      loadAdminData();
       
-      alert('Quiz uploaded successfully!');
-      loadDashboardData();
-    } catch (error) {
-      console.error('Error uploading quiz:', error);
-      alert('Error uploading quiz file');
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      setError(getErrorMessage(err, 'Unable to create quiz question'));
+    } finally {
+      setSaving(false);
     }
   };
 
-  const createQuiz = async () => {
-    if (!newQuiz.title.trim()) {
-      alert('Please enter a quiz title');
-      return;
-    }
-    
-    try {
-      await api.post('/admin/quizzes', newQuiz);
-      alert('Quiz created successfully!');
-      setNewQuiz({ title: '', description: '', category: 'Node.js', difficulty: 'Easy', timeLimit: 30 });
-      loadDashboardData();
-    } catch (error) {
-      console.error('Error creating quiz:', error);
-      alert('Error creating quiz');
-    }
-  };
-
-  const addQuestion = async () => {
-    if (!newQuestion.quizId || !newQuestion.question.trim()) {
-      alert('Please select a quiz and enter question text');
-      return;
-    }
-    
-    try {
-      await api.post('/admin/questions', newQuestion);
-      alert('Question added successfully!');
-      setNewQuestion({
-        question: '',
-        options: ['', '', '', ''],
-        correctAnswer: 0,
-        explanation: '',
-        quizId: ''
-      });
-      loadDashboardData();
-    } catch (error) {
-      console.error('Error adding question:', error);
-      alert('Error adding question');
-    }
-  };
-
-  const deleteQuiz = async (quizId) => {
-    if (window.confirm('Are you sure you want to delete this quiz?')) {
-      try {
-        await api.delete(`/admin/quizzes/${quizId}`);
-        alert('Quiz deleted successfully!');
-        loadDashboardData();
-      } catch (error) {
-        console.error('Error deleting quiz:', error);
-        alert('Error deleting quiz');
-      }
-    }
-  };
-
-  const loadQuizQuestions = async (quizId) => {
-    try {
-      const response = await api.get(`/admin/quizzes/${quizId}/questions`);
-      setSelectedQuizQuestions(response.data);
-      setEditingQuiz(quizzes.find(q => q.id === quizId));
-    } catch (error) {
-      console.error('Error loading quiz questions:', error);
-    }
-  };
-
-  const editQuiz = (quiz) => {
-    setEditingQuiz({
-      id: quiz.id,
-      title: quiz.title,
-      description: quiz.description || '',
-      category: quiz.category,
-      difficulty: quiz.difficulty,
-      timeLimit: quiz.time_limit || quiz.timeLimit || 30
-    });
-  };
-
-  const updateQuiz = async () => {
-    try {
-      await api.put(`/admin/quizzes/${editingQuiz.id}`, editingQuiz);
-      alert('Quiz updated successfully!');
-      setEditingQuiz(null);
-      loadDashboardData();
-    } catch (error) {
-      console.error('Error updating quiz:', error);
-      alert('Error updating quiz');
-    }
-  };
-
-  const SkeletonBar = ({ width = '100%', height = 16, mb = 8 }) => (
-    <div style={{ width, height, background: '#1f2937', borderRadius: 4, marginBottom: mb, animation: 'pulse 1.5s ease-in-out infinite' }} />
-  );
-
-  const SkeletonStat = () => (
-    <div style={styles.statCard}>
-      <div style={styles.statIcon}> </div>
-      <SkeletonBar width="50%" height={28} mb={6} />
-      <SkeletonBar width="40%" height={12} mb={0} />
-    </div>
-  );
-
-  const renderDashboard = () => (
-    <div style={styles.dashboard}>
-      <div style={styles.statsGrid}>
-        {loading ? (
-          <>
-            <SkeletonStat />
-            <SkeletonStat />
-            <SkeletonStat />
-            <SkeletonStat />
-          </>
-        ) : (
-          <>
-            <div style={styles.statCard}>
-              <div style={styles.statIcon}>👥</div>
-              <div style={styles.statNumber}>{stats.totalUsers}</div>
-              <div style={styles.statLabel}>Total Users</div>
-            </div>
-            <div style={styles.statCard}>
-              <div style={styles.statIcon}>📝</div>
-              <div style={styles.statNumber}>{stats.totalQuizzes}</div>
-              <div style={styles.statLabel}>Total Quizzes</div>
-            </div>
-            <div style={styles.statCard}>
-              <div style={styles.statIcon}>❓</div>
-              <div style={styles.statNumber}>{stats.totalQuestions}</div>
-              <div style={styles.statLabel}>Total Questions</div>
-            </div>
-            <div style={styles.statCard}>
-              <div style={styles.statIcon}>📊</div>
-              <div style={styles.statNumber}>{stats.totalSessions}</div>
-              <div style={styles.statLabel}>Quiz Sessions</div>
-            </div>
-          </>
-        )}
+  if (loading) {
+    return (
+      <div className="flex-grow flex items-center justify-center min-h-[70vh]">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-dark-border border-t-brand-primary" />
       </div>
-
-      <div style={styles.quickActions}>
-        <h3 style={styles.sectionTitle}>Quick Actions</h3>
-        <div style={styles.actionButtons}>
-          <button onClick={() => setActiveTab('quizzes')} style={styles.actionBtn}>
-            📝 Manage Quizzes
-          </button>
-          <button onClick={() => setActiveTab('users')} style={styles.actionBtn}>
-            👥 View Users
-          </button>
-          <button onClick={() => setActiveTab('upload')} style={styles.actionBtn}>
-            📁 Upload File
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderQuizManagement = () => (
-    <div style={styles.section}>
-      <h3 style={styles.sectionTitle}>Quiz Management</h3>
-      
-      {/* Filters */}
-      <div style={styles.filterBar}>
-        <input
-          type="text"
-          placeholder="🔍 Search quizzes..."
-          style={styles.searchInput}
-          value={quizFilters.search}
-          onChange={(e) => handleFilterChange('search', e.target.value)}
-        />
-        <select
-          style={styles.selectInput}
-          value={quizFilters.category}
-          onChange={(e) => handleFilterChange('category', e.target.value)}
-        >
-          <option value="">All Categories</option>
-          <option value="Node.js">Node.js</option>
-          <option value="React.js">React.js</option>
-          <option value="Express.js">Express.js</option>
-          <option value="MongoDB">MongoDB</option>
-          <option value="JavaScript">JavaScript</option>
-        </select>
-      </div>
-
-      {/* Quizzes List */}
-      <div style={styles.quizzesList}>
-        <div style={styles.tableHeader}>
-          <h4>Existing Quizzes ({filteredQuizzes.length})</h4>
-          <button style={styles.btnPrimary} onClick={createQuiz}>
-            + Create New Quiz
-          </button>
-        </div>
-        
-        <div style={styles.quizTable}>
-          {loading ? (
-            <div>
-              {[1,2,3,4].map(i => (
-                <div key={i} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr', gap: '1rem', padding: '0.75rem 0', borderBottom: '1px solid #1f2937' }}>
-                  <SkeletonBar width="90%" />
-                  <SkeletonBar width="60%" />
-                  <SkeletonBar width="40%" />
-                  <SkeletonBar width="30%" />
-                  <SkeletonBar width="30%" />
-                  <SkeletonBar width="50%" />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <table style={styles.table}>
-              <thead>
-                <tr>
-                  <th style={styles.th}>Title</th>
-                  <th style={styles.th}>Category</th>
-                  <th style={styles.th}>Difficulty</th>
-                  <th style={styles.th}>Time (min)</th>
-                  <th style={styles.th}>Status</th>
-                  <th style={styles.th}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredQuizzes.map(quiz => (
-                  <tr key={quiz.id}>
-                    <td style={styles.td}>{quiz.title}</td>
-                    <td style={styles.td}>
-                      <span style={styles.badge}>{quiz.category}</span>
-                    </td>
-                    <td style={styles.td}>
-                      <span style={{...styles.badge, ...getDifficultyStyle(quiz.difficulty)}}>
-                        {quiz.difficulty}
-                      </span>
-                    </td>
-                    <td style={styles.td}>{quiz.time_limit || quiz.timeLimit} min</td>
-                    <td style={styles.td}>
-                      <span style={{...styles.statusBadge, 
-                        background: quiz.is_active ? '#10b981' : '#6b7280'}}>
-                        {quiz.is_active ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
-                    <td style={styles.td}>
-                      <div style={styles.actionButtons}>
-                        <button style={styles.btnSmall} onClick={() => loadQuizQuestions(quiz.id)}>
-                          View
-                        </button>
-                        <button style={styles.btnSmall} onClick={() => editQuiz(quiz)}>
-                          Edit
-                        </button>
-                        <button style={{...styles.btnSmall, ...styles.btnDanger}} 
-                                onClick={() => deleteQuiz(quiz.id)}>
-                          Delete
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
-
-      {/* Create Quiz Form */}
-      <div style={styles.formSection}>
-        <h4 style={styles.sectionTitle}>Create New Quiz</h4>
-        <div style={styles.formGrid}>
-          <input
-            type="text"
-            placeholder="Quiz Title"
-            style={styles.input}
-            value={newQuiz.title}
-            onChange={(e) => setNewQuiz({...newQuiz, title: e.target.value})}
-          />
-          <textarea
-            placeholder="Description (optional)"
-            style={styles.textarea}
-            value={newQuiz.description}
-            onChange={(e) => setNewQuiz({...newQuiz, description: e.target.value})}
-          />
-          <select
-            style={styles.selectInput}
-            value={newQuiz.category}
-            onChange={(e) => setNewQuiz({...newQuiz, category: e.target.value})}
-          >
-            <option value="Node.js">Node.js</option>
-            <option value="React.js">React.js</option>
-            <option value="Express.js">Express.js</option>
-            <option value="MongoDB">MongoDB</option>
-            <option value="JavaScript">JavaScript</option>
-          </select>
-          <select
-            style={styles.selectInput}
-            value={newQuiz.difficulty}
-            onChange={(e) => setNewQuiz({...newQuiz, difficulty: e.target.value})}
-          >
-            <option value="Easy">Easy</option>
-            <option value="Medium">Medium</option>
-            <option value="Hard">Hard</option>
-          </select>
-          <input
-            type="number"
-            placeholder="Time Limit (minutes)"
-            style={styles.input}
-            value={newQuiz.timeLimit}
-            onChange={(e) => setNewQuiz({...newQuiz, timeLimit: parseInt(e.target.value)})}
-          />
-        </div>
-        <button style={styles.btnPrimary} onClick={createQuiz}>
-          Create Quiz
-        </button>
-      </div>
-
-      {/* Add Question Form */}
-      <div style={styles.formSection}>
-        <h4 style={styles.sectionTitle}>Add Question</h4>
-        <div style={styles.formGrid}>
-          <select
-            style={styles.selectInput}
-            value={newQuestion.quizId}
-            onChange={(e) => setNewQuestion({...newQuestion, quizId: e.target.value})}
-          >
-            <option value="">Select Quiz</option>
-            {quizzes.map(quiz => (
-              <option key={quiz.id} value={quiz.id}>{quiz.title}</option>
-            ))}
-          </select>
-          <textarea
-            placeholder="Question Text"
-            style={styles.textarea}
-            value={newQuestion.question}
-            onChange={(e) => setNewQuestion({...newQuestion, question: e.target.value})}
-            rows="3"
-          />
-          {newQuestion.options.map((option, index) => (
-            <input
-              key={index}
-              type="text"
-              placeholder={`Option ${index + 1}`}
-              style={styles.input}
-              value={option}
-              onChange={(e) => {
-                const newOptions = [...newQuestion.options];
-                newOptions[index] = e.target.value;
-                setNewQuestion({...newQuestion, options: newOptions});
-              }}
-            />
-          ))}
-          <select
-            style={styles.selectInput}
-            value={newQuestion.correctAnswer}
-            onChange={(e) => setNewQuestion({...newQuestion, correctAnswer: parseInt(e.target.value)})}
-          >
-            <option value={0}>Option 1 is Correct</option>
-            <option value={1}>Option 2 is Correct</option>
-            <option value={2}>Option 3 is Correct</option>
-            <option value={3}>Option 4 is Correct</option>
-          </select>
-        </div>
-        <button style={styles.btnPrimary} onClick={addQuestion}>
-          Add Question
-        </button>
-      </div>
-
-      {/* Questions List */}
-      {selectedQuizQuestions.length > 0 && (
-        <div style={styles.formSection}>
-          <h4 style={styles.sectionTitle}>
-            Questions for: {editingQuiz?.title} ({selectedQuizQuestions.length})
-          </h4>
-          <div style={styles.questionsList}>
-            {selectedQuizQuestions.map((question, index) => (
-              <div key={question.id} style={styles.questionCard}>
-                <div style={styles.questionHeader}>
-                  <span style={styles.questionNumber}>Q{index + 1}</span>
-                  <span style={styles.statusBadge}>Option {question.correct_answer + 1} is correct</span>
-                </div>
-                <p style={styles.questionText}>{question.question_text}</p>
-                <div style={styles.optionsList}>
-                  {question.options.map((option, optIndex) => (
-                    <div key={optIndex} style={{
-                      ...styles.option,
-                      background: optIndex === question.correct_answer ? '#10b981' : '#374151'
-                    }}>
-                      {optIndex + 1}. {option}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Edit Quiz Modal */}
-      {editingQuiz && !selectedQuizQuestions.length && (
-        <div style={styles.modalOverlay} onClick={() => setEditingQuiz(null)}>
-          <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
-            <div style={styles.modalHeader}>
-              <h3>Edit Quiz</h3>
-              <button style={styles.closeBtn} onClick={() => setEditingQuiz(null)}>×</button>
-            </div>
-            <div style={styles.formGrid}>
-              <input
-                type="text"
-                placeholder="Quiz Title"
-                style={styles.input}
-                value={editingQuiz.title}
-                onChange={(e) => setEditingQuiz({...editingQuiz, title: e.target.value})}
-              />
-              <textarea
-                placeholder="Description"
-                style={styles.textarea}
-                value={editingQuiz.description}
-                onChange={(e) => setEditingQuiz({...editingQuiz, description: e.target.value})}
-              />
-              <select
-                style={styles.selectInput}
-                value={editingQuiz.category}
-                onChange={(e) => setEditingQuiz({...editingQuiz, category: e.target.value})}
-              >
-                <option value="Node.js">Node.js</option>
-                <option value="React.js">React.js</option>
-                <option value="Express.js">Express.js</option>
-                <option value="MongoDB">MongoDB</option>
-                <option value="JavaScript">JavaScript</option>
-              </select>
-              <select
-                style={styles.selectInput}
-                value={editingQuiz.difficulty}
-                onChange={(e) => setEditingQuiz({...editingQuiz, difficulty: e.target.value})}
-              >
-                <option value="Easy">Easy</option>
-                <option value="Medium">Medium</option>
-                <option value="Hard">Hard</option>
-              </select>
-              <input
-                type="number"
-                placeholder="Time Limit (minutes)"
-                style={styles.input}
-                value={editingQuiz.timeLimit}
-                onChange={(e) => setEditingQuiz({...editingQuiz, timeLimit: parseInt(e.target.value)})}
-              />
-            </div>
-            <div style={styles.modalActions}>
-              <button style={styles.btnPrimary} onClick={updateQuiz}>Update Quiz</button>
-              <button style={styles.btnSecondary} onClick={() => setEditingQuiz(null)}>Cancel</button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-
-  const renderUserManagement = () => (
-    <div style={styles.section}>
-      <h3 style={styles.sectionTitle}>User Management</h3>
-      <div style={styles.tableContainer}>
-        {loading ? (
-          <div>
-            {[1,2,3,4,5,6,7].map(i => (
-              <div key={i} style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 1fr 1fr', gap: '1rem', padding: '0.75rem 0', borderBottom: '1px solid #1f2937' }}>
-                <SkeletonBar width="90%" />
-                <SkeletonBar width="80%" />
-                <SkeletonBar width="50%" />
-                <SkeletonBar width="30%" />
-              </div>
-            ))}
-          </div>
-        ) : (
-          <table style={styles.table}>
-            <thead>
-              <tr>
-                <th style={styles.th}>Name</th>
-                <th style={styles.th}>Email</th>
-                <th style={styles.th}>Role</th>
-                <th style={styles.th}>Quizzes Taken</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map(user => (
-                <tr key={user.id}>
-                  <td style={styles.td}>{user.name}</td>
-                  <td style={styles.td}>{user.email}</td>
-                  <td style={styles.td}>
-                    <span style={styles.badge}>
-                      {user.role || (user.is_admin ? 'admin' : 'user')}
-                    </span>
-                  </td>
-                  <td style={styles.td}>{user.quizzes_taken || 0}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-    </div>
-  );
-
-  const renderFileUpload = () => (
-    <div style={styles.section}>
-      <h3 style={styles.sectionTitle}>File Upload</h3>
-      <div style={styles.uploadArea}>
-        <input
-          type="file"
-          accept=".csv,.json"
-          onChange={handleFileUpload}
-          style={styles.fileInput}
-          id="quiz-file-upload"
-        />
-        <label htmlFor="quiz-file-upload" style={styles.uploadLabel}>
-          <div style={styles.uploadContent}>
-            <div style={styles.uploadIcon}>📁</div>
-            <div>Click to upload quiz file</div>
-            <div style={styles.uploadHint}>Supports CSV and JSON formats</div>
-          </div>
-        </label>
-      </div>
-    </div>
-  );
-
-  const getDifficultyStyle = (difficulty) => {
-    const styles = {
-      'Easy': { background: '#10b981' },
-      'Medium': { background: '#f59e0b' },
-      'Hard': { background: '#ef4444' }
-    };
-    return styles[difficulty] || { background: '#6b7280' };
-  };
+    );
+  }
 
   return (
-    <div style={styles.container}>
-      <div style={styles.header}>
-        <h1>⚙️ Admin Dashboard</h1>
-        <p>Quiz Sprint - Manage your platform</p>
+    <div className="mx-auto max-w-7xl px-4 pb-16 animate-fade-in text-text-primary">
+      {/* Header Section */}
+      <section className="glass-panel overflow-hidden relative mb-8 bg-white shadow-sm border border-dark-border">
+        <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-brand-primary/10 to-transparent z-0"></div>
+        <div className="relative z-10 p-8 lg:p-12">
+          <div className="badge badge-success mb-4 flex items-center gap-2 w-max shadow-sm">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+            System Administration
+          </div>
+          <h1 className="heading-1">Platform Control Center</h1>
+          <p className="text-muted text-lg mt-4 max-w-3xl">
+            Manage the user base, orchestrate learning modules, and curate challenges for the community.
+          </p>
+          
+          {error && (
+            <div className="mt-6 rounded border border-brand-danger/30 bg-brand-danger/5 p-4 w-fit flex items-center gap-3 text-brand-danger text-sm font-bold">
+              <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              {error}
+            </div>
+          )}
+          {success && (
+            <div className="mt-6 rounded border border-emerald-500/30 bg-emerald-500/5 p-4 w-fit flex items-center gap-3 text-emerald-600 text-sm font-bold shadow-sm">
+              <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+              {success}
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Stats Overview */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+        <div className="glass-card p-6 flex items-center justify-between group hover:border-brand-primary transition-colors bg-white shadow-sm border-dark-border">
+          <div>
+            <div className="text-xs font-bold text-text-tertiary uppercase tracking-wider mb-2">Total Users</div>
+            <div className="text-3xl font-black text-text-primary group-hover:text-brand-primary transition-colors">{users.length}</div>
+          </div>
+          <div className="w-12 h-12 rounded border-2 border-dark-border bg-dark-surface text-text-secondary flex items-center justify-center group-hover:border-brand-primary group-hover:bg-brand-primary/10 group-hover:text-brand-primary transition-colors">
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+          </div>
+        </div>
+        
+        <div className="glass-card p-6 flex items-center justify-between group hover:border-brand-primary transition-colors bg-white shadow-sm border-dark-border">
+          <div>
+            <div className="text-xs font-bold text-text-tertiary uppercase tracking-wider mb-2">Total Challenges</div>
+            <div className="text-3xl font-black text-text-primary group-hover:text-brand-primary transition-colors">{questions.length}</div>
+          </div>
+          <div className="w-12 h-12 rounded border-2 border-dark-border bg-dark-surface text-text-secondary flex items-center justify-center group-hover:border-brand-primary group-hover:bg-brand-primary/10 group-hover:text-brand-primary transition-colors">
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+          </div>
+        </div>
+        
+        <div className="glass-card p-6 flex items-center justify-between group hover:border-brand-primary transition-colors bg-white shadow-sm border-dark-border">
+          <div>
+            <div className="text-xs font-bold text-text-tertiary uppercase tracking-wider mb-2">Modules</div>
+            <div className="text-3xl font-black text-text-primary group-hover:text-brand-primary transition-colors">{categories.length}</div>
+          </div>
+          <div className="w-12 h-12 rounded border-2 border-dark-border bg-dark-surface text-text-secondary flex items-center justify-center group-hover:border-brand-primary group-hover:bg-brand-primary/10 group-hover:text-brand-primary transition-colors">
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+          </div>
+        </div>
+
+        <div className="glass-card p-6 flex items-center justify-between group hover:border-brand-danger transition-colors bg-white shadow-sm border-dark-border">
+          <div>
+            <div className="text-xs font-bold text-brand-danger uppercase tracking-wider mb-2">Admins</div>
+            <div className="text-3xl font-black text-brand-danger">{users.filter((item) => item.role === 'admin').length}</div>
+          </div>
+          <div className="w-12 h-12 rounded border-2 border-brand-danger/30 bg-brand-danger/10 text-brand-danger flex items-center justify-center group-hover:border-brand-danger group-hover:bg-brand-danger group-hover:text-white transition-colors">
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+          </div>
+        </div>
       </div>
 
-      <div style={styles.tabs}>
-        <button 
-          style={{...styles.tab, ...(activeTab === 'dashboard' && styles.tabActive)}}
-          onClick={() => setActiveTab('dashboard')}
-        >
-          📊 Dashboard
-        </button>
-        <button 
-          style={{...styles.tab, ...(activeTab === 'quizzes' && styles.tabActive)}}
-          onClick={() => setActiveTab('quizzes')}
-        >
-          📝 Quizzes
-        </button>
-        <button 
-          style={{...styles.tab, ...(activeTab === 'users' && styles.tabActive)}}
-          onClick={() => setActiveTab('users')}
-        >
-          👥 Users
-        </button>
-        <button 
-          style={{...styles.tab, ...(activeTab === 'upload' && styles.tabActive)}}
-          onClick={() => setActiveTab('upload')}
-        >
-          📁 Upload
-        </button>
-      </div>
+      {/* Main Workspace Layout */}
+      <div className="grid gap-8 lg:grid-cols-[1.5fr_1fr]">
+        
+        {/* Left Column: Form */}
+        <div className="glass-card p-6 md:p-8 bg-white shadow-sm border border-dark-border">
+          <div className="flex items-center gap-3 mb-6 border-b border-dark-border pb-4">
+            <div className="w-10 h-10 rounded border border-dark-border bg-dark-surface flex items-center justify-center text-text-primary shadow-sm">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+            </div>
+            <div>
+              <h2 className="heading-3 mb-0 text-text-primary">Create Challenge</h2>
+              <p className="text-sm font-bold text-text-tertiary">Add a new question to the practice pool.</p>
+            </div>
+          </div>
+          
+          <form onSubmit={handleCreate} className="space-y-6">
+            <div className="grid gap-6 md:grid-cols-2">
+              <div className="form-group">
+                <label className="form-label text-text-primary text-xs uppercase tracking-wider font-bold">Challenge Title</label>
+                <input className="input-field bg-white" placeholder="e.g. React Component Logic" value={formData.title} onChange={(event) => setFormData((current) => ({ ...current, title: event.target.value }))} required />
+              </div>
+              
+              <div className="form-group">
+                <label className="form-label text-text-primary text-xs uppercase tracking-wider font-bold">Module Link</label>
+                <div className="relative">
+                  <select className="input-field appearance-none w-full bg-white" value={formData.category_id} onChange={(event) => setFormData((current) => ({ ...current, category_id: event.target.value }))} required>
+                    <option value="" disabled>Select target module...</option>
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id}>{category.title || category.name}</option>
+                    ))}
+                  </select>
+                  <div className="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none text-text-secondary">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 9l-7 7-7-7"></path></svg>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="form-group md:col-span-2">
+                <label className="form-label text-text-primary text-xs uppercase tracking-wider font-bold">Context / Description (Optional)</label>
+                <textarea className="input-field bg-white min-h-[80px]" placeholder="Brief background for the challenge..." value={formData.description} onChange={(event) => setFormData((current) => ({ ...current, description: event.target.value }))} rows={2} />
+              </div>
+              
+              <div className="form-group md:col-span-2">
+                <label className="form-label text-brand-primary text-xs uppercase tracking-wider font-bold">Question Prompt</label>
+                <textarea className="input-field bg-white min-h-[120px] font-mono text-sm border-brand-primary/30 focus:border-brand-primary" placeholder="The actual problem statement..." value={formData.question_text} onChange={(event) => setFormData((current) => ({ ...current, question_text: event.target.value }))} rows={4} required />
+              </div>
 
-      <div style={styles.content}>
-        {activeTab === 'dashboard' && renderDashboard()}
-        {activeTab === 'quizzes' && renderQuizManagement()}
-        {activeTab === 'users' && renderUserManagement()}
-        {activeTab === 'upload' && renderFileUpload()}
+              {/* Options Grid */}
+              <div className="md:col-span-2 bg-dark-surface border border-dark-border rounded p-6 shadow-sm">
+                <label className="form-label text-text-primary text-xs uppercase tracking-wider font-bold mb-4 block">Possible Answers</label>
+                <div className="grid gap-4 md:grid-cols-2 w-full">
+                  <div className="flex relative items-center">
+                    <span className="absolute left-4 font-bold font-mono text-text-secondary">A</span>
+                    <input className="input-field pl-10 bg-white shadow-sm" placeholder="Option A" value={formData.optionA} onChange={(event) => setFormData((current) => ({ ...current, optionA: event.target.value }))} required />
+                  </div>
+                  <div className="flex relative items-center">
+                    <span className="absolute left-4 font-bold font-mono text-text-secondary">B</span>
+                    <input className="input-field pl-10 bg-white shadow-sm" placeholder="Option B" value={formData.optionB} onChange={(event) => setFormData((current) => ({ ...current, optionB: event.target.value }))} required />
+                  </div>
+                  <div className="flex relative items-center">
+                    <span className="absolute left-4 font-bold font-mono text-text-secondary">C</span>
+                    <input className="input-field pl-10 bg-white shadow-sm" placeholder="Option C" value={formData.optionC} onChange={(event) => setFormData((current) => ({ ...current, optionC: event.target.value }))} required />
+                  </div>
+                  <div className="flex relative items-center">
+                    <span className="absolute left-4 font-bold font-mono text-text-secondary">D</span>
+                    <input className="input-field pl-10 bg-white shadow-sm" placeholder="Option D" value={formData.optionD} onChange={(event) => setFormData((current) => ({ ...current, optionD: event.target.value }))} required />
+                  </div>
+                </div>
+              </div>
+
+              <div className="form-group md:col-span-2">
+                <label className="form-label text-emerald-600 text-xs uppercase tracking-wider font-bold">Correct Answer (Exact Match)</label>
+                <input className="input-field bg-white border-emerald-500 shadow-sm focus:border-emerald-600" placeholder="Must exactly match one of the options above" value={formData.answer} onChange={(event) => setFormData((current) => ({ ...current, answer: event.target.value }))} required />
+              </div>
+
+              <div className="form-group md:col-span-2">
+                <label className="form-label text-text-primary text-xs uppercase tracking-wider font-bold">Post-Answer Explanation</label>
+                <textarea className="input-field bg-white min-h-[80px]" placeholder="Explain why the answer is correct..." value={formData.explanation} onChange={(event) => setFormData((current) => ({ ...current, explanation: event.target.value }))} rows={2} />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label text-text-primary text-xs uppercase tracking-wider font-bold">Difficulty</label>
+                <div className="relative">
+                  <select className="input-field appearance-none w-full bg-white shadow-sm" value={formData.difficulty} onChange={(event) => setFormData((current) => ({ ...current, difficulty: event.target.value }))}>
+                    <option value="Easy">Beginner (Easy)</option>
+                    <option value="Medium">Intermediate (Medium)</option>
+                    <option value="Hard">Expert (Hard)</option>
+                  </select>
+                  <div className="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none text-text-secondary">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 9l-7 7-7-7"></path></svg>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="form-group">
+                  <label className="form-label text-text-primary text-xs uppercase tracking-wider font-bold">XP Points</label>
+                  <input className="input-field bg-white shadow-sm" type="number" placeholder="10" value={formData.points} onChange={(event) => setFormData((current) => ({ ...current, points: event.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label text-text-primary text-xs uppercase tracking-wider font-bold">Time (sec)</label>
+                  <input className="input-field bg-white shadow-sm" type="number" placeholder="30" value={formData.time_limit} onChange={(event) => setFormData((current) => ({ ...current, time_limit: event.target.value }))} />
+                </div>
+              </div>
+            </div>
+            
+            <div className="pt-6 border-t border-dark-border mt-8">
+              <button type="submit" disabled={saving} className="btn-primary w-full disabled:opacity-70 flex items-center justify-center gap-2 shadow-sm font-black text-sm tracking-widest uppercase">
+                {saving ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+                    Deploying...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+                    Deploy Challenge
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
+
+        {/* Right Column: Widgets */}
+        <div className="space-y-8">
+          
+          {/* Content Coverage */}
+          <div className="glass-card flex flex-col h-[400px] bg-white shadow-sm border border-dark-border">
+            <div className="p-6 border-b border-dark-border shrink-0 bg-dark-surface">
+              <h2 className="heading-3 mb-1 text-text-primary">Module Coverage</h2>
+              <p className="text-xs font-bold text-text-tertiary">Distribution of questions across roadmaps.</p>
+            </div>
+            <div className="flex-grow overflow-y-auto p-6 space-y-3 custom-scrollbar">
+              {categories.map((category) => {
+                const count = questionSummary[category.id] || 0;
+                // Just a visual percentage to make it look cool, capping at 50 questions
+                const fillPercent = Math.min((count / 50) * 100, 100);
+                
+                return (
+                  <div key={category.id} className="relative rounded border border-dark-border bg-white p-4 overflow-hidden group shadow-sm">
+                    <div className="absolute left-0 top-0 bottom-0 bg-brand-primary/10 transition-all w-full" style={{ width: `${fillPercent}%` }}></div>
+                    <div className="relative z-10 flex items-center justify-between">
+                      <div className="font-bold text-text-primary group-hover:text-brand-primary transition-colors">{category.title || category.name}</div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-black text-brand-primary">{count}</span>
+                        <span className="text-xs font-bold text-text-tertiary uppercase">Questions</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              {categories.length === 0 && (
+                <div className="text-sm font-bold text-text-tertiary text-center py-4">No modules found</div>
+              )}
+            </div>
+          </div>
+
+          {/* User Roster */}
+          <div className="glass-card flex flex-col h-[400px] bg-white shadow-sm border border-dark-border">
+            <div className="p-6 border-b border-dark-border shrink-0 bg-dark-surface">
+              <h2 className="heading-3 mb-1 text-text-primary">Active Roster</h2>
+              <p className="text-xs font-bold text-text-tertiary">Recent platform registrations and admin users.</p>
+            </div>
+            
+            <div className="flex-grow overflow-y-auto custom-scrollbar">
+              <table className="w-full text-left border-collapse text-sm">
+                <thead className="bg-white sticky top-0 z-10 border-b border-dark-border">
+                  <tr className="text-xs font-black tracking-wider text-text-tertiary uppercase bg-dark-surface">
+                    <th className="px-6 py-4 border-b border-dark-border">Developer</th>
+                    <th className="px-6 py-4 border-b border-dark-border text-right">Role</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-dark-border">
+                  {users.slice(0, 10).map((item) => (
+                    <tr key={item.id} className="hover:bg-dark-surface transition-colors">
+                      <td className="px-6 py-4">
+                        <div className="font-bold text-text-primary">{item.username || item.name}</div>
+                        <div className="text-xs font-medium text-text-tertiary truncate max-w-[150px]">{item.email}</div>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <span className={`inline-flex px-3 py-1 rounded text-xs font-black uppercase tracking-wider shadow-sm border
+                          ${item.role === 'admin' 
+                            ? 'bg-brand-primary/10 text-brand-primary border-brand-primary/30' 
+                            : 'bg-white text-text-secondary border-dark-border'}
+                        `}>
+                          {item.role}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                  {users.length === 0 && (
+                    <tr>
+                      <td colSpan="2" className="px-6 py-8 text-center font-medium text-text-tertiary">No users found</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
       </div>
     </div>
   );
-};
-
-const styles = {
-  container: {
-    background: '#0f172a',
-    minHeight: '100vh',
-    color: '#e5e7eb'
-  },
-  header: {
-    background: 'linear-gradient(135deg, #111827, #0b1220)',
-    padding: '2rem',
-    borderBottom: '1px solid #1f2937',
-    textAlign: 'center'
-  },
-  tabs: {
-    display: 'flex',
-    background: '#111827',
-    borderBottom: '1px solid #1f2937',
-    padding: '0 2rem'
-  },
-  tab: {
-    background: 'transparent',
-    border: 'none',
-    color: '#94a3b8',
-    padding: '1rem 1.5rem',
-    cursor: 'pointer',
-    borderBottom: '2px solid transparent',
-    transition: 'all 0.3s ease'
-  },
-  tabActive: {
-    color: '#3b82f6',
-    borderBottomColor: '#3b82f6'
-  },
-  content: {
-    padding: '2rem',
-    maxWidth: '1400px',
-    margin: '0 auto'
-  },
-  loading: {
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    height: '100vh'
-  },
-  spinner: {
-    fontSize: '1.5rem',
-    color: '#94a3b8'
-  },
-  dashboard: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '2rem'
-  },
-  statsGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-    gap: '1rem'
-  },
-  statCard: {
-    background: '#111827',
-    border: '1px solid #1f2937',
-    borderRadius: '0.5rem',
-    padding: '1.5rem',
-    textAlign: 'center'
-  },
-  statIcon: {
-    fontSize: '2rem',
-    marginBottom: '0.5rem'
-  },
-  statNumber: {
-    fontSize: '2rem',
-    fontWeight: 'bold',
-    color: '#3b82f6',
-    display: 'block'
-  },
-  statLabel: {
-    fontSize: '0.875rem',
-    color: '#94a3b8',
-    marginTop: '0.25rem'
-  },
-  quickActions: {
-    background: '#111827',
-    border: '1px solid #1f2937',
-    borderRadius: '0.5rem',
-    padding: '1.5rem'
-  },
-  actionButtons: {
-    display: 'flex',
-    gap: '1rem',
-    flexWrap: 'wrap',
-    marginTop: '1rem'
-  },
-  actionBtn: {
-    background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
-    color: 'white',
-    border: 'none',
-    padding: '0.75rem 1.5rem',
-    borderRadius: '0.5rem',
-    cursor: 'pointer',
-    fontWeight: '500'
-  },
-  section: {
-    background: '#111827',
-    border: '1px solid #1f2937',
-    borderRadius: '0.5rem',
-    padding: '2rem'
-  },
-  sectionTitle: {
-    color: '#f8fafc',
-    marginBottom: '1rem',
-    fontSize: '1.25rem'
-  },
-  filterBar: {
-    display: 'flex',
-    gap: '1rem',
-    marginBottom: '1rem'
-  },
-  searchInput: {
-    flex: 1,
-    background: '#0b1220',
-    border: '1px solid #1f2937',
-    color: '#e5e7eb',
-    padding: '0.75rem',
-    borderRadius: '0.5rem',
-    fontSize: '0.875rem'
-  },
-  selectInput: {
-    background: '#0b1220',
-    border: '1px solid #1f2937',
-    color: '#e5e7eb',
-    padding: '0.75rem',
-    borderRadius: '0.5rem',
-    fontSize: '0.875rem'
-  },
-  formSection: {
-    marginBottom: '2rem',
-    paddingBottom: '2rem',
-    borderBottom: '1px solid #1f2937'
-  },
-  formGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-    gap: '1rem',
-    marginBottom: '1rem'
-  },
-  input: {
-    background: '#0b1220',
-    border: '1px solid #1f2937',
-    color: '#e5e7eb',
-    padding: '0.75rem',
-    borderRadius: '0.5rem',
-    fontSize: '0.875rem'
-  },
-  textarea: {
-    background: '#0b1220',
-    border: '1px solid #1f2937',
-    color: '#e5e7eb',
-    padding: '0.75rem',
-    borderRadius: '0.5rem',
-    fontSize: '0.875rem',
-    resize: 'vertical',
-    minHeight: '100px'
-  },
-  btnPrimary: {
-    background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
-    color: 'white',
-    border: 'none',
-    padding: '0.75rem 1.5rem',
-    borderRadius: '0.5rem',
-    cursor: 'pointer',
-    fontWeight: '500'
-  },
-  btnSecondary: {
-    background: '#374151',
-    color: '#e5e7eb',
-    border: 'none',
-    padding: '0.75rem 1.5rem',
-    borderRadius: '0.5rem',
-    cursor: 'pointer',
-    fontWeight: '500'
-  },
-  btnSmall: {
-    background: '#374151',
-    color: '#e5e7eb',
-    border: 'none',
-    padding: '0.5rem 1rem',
-    borderRadius: '0.25rem',
-    cursor: 'pointer',
-    fontSize: '0.875rem',
-    marginRight: '0.5rem'
-  },
-  btnDanger: {
-    background: '#dc2626',
-    color: 'white'
-  },
-  quizTable: {
-    marginTop: '1rem',
-    overflowX: 'auto'
-  },
-  table: {
-    width: '100%',
-    borderCollapse: 'collapse'
-  },
-  th: {
-    background: '#0b1220',
-    color: '#f8fafc',
-    padding: '0.75rem',
-    textAlign: 'left',
-    borderBottom: '1px solid #1f2937',
-    fontWeight: '600'
-  },
-  td: {
-    padding: '0.75rem',
-    borderBottom: '1px solid #1f2937',
-    color: '#e5e7eb'
-  },
-  badge: {
-    background: '#3b82f6',
-    color: 'white',
-    padding: '0.25rem 0.5rem',
-    borderRadius: '0.25rem',
-    fontSize: '0.75rem',
-    fontWeight: '500'
-  },
-  statusBadge: {
-    padding: '0.25rem 0.5rem',
-    borderRadius: '0.25rem',
-    fontSize: '0.75rem',
-    fontWeight: '500',
-    background: '#10b981',
-    color: 'white'
-  },
-  quizzesList: {
-    marginTop: '1rem'
-  },
-  tableHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '1rem'
-  },
-  questionsList: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '1rem'
-  },
-  questionCard: {
-    background: '#0b1220',
-    border: '1px solid #1f2937',
-    borderRadius: '0.5rem',
-    padding: '1rem'
-  },
-  questionHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '0.5rem'
-  },
-  questionNumber: {
-    fontSize: '0.875rem',
-    fontWeight: 'bold',
-    color: '#3b82f6'
-  },
-  questionText: {
-    color: '#e5e7eb',
-    marginBottom: '0.5rem'
-  },
-  optionsList: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '0.25rem'
-  },
-  option: {
-    padding: '0.25rem 0.5rem',
-    borderRadius: '0.25rem',
-    fontSize: '0.875rem',
-    background: '#374151',
-    color: '#e5e7eb'
-  },
-  modalOverlay: {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    background: 'rgba(0, 0, 0, 0.8)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1000
-  },
-  modalContent: {
-    background: '#111827',
-    border: '1px solid #1f2937',
-    borderRadius: '0.5rem',
-    padding: '2rem',
-    maxWidth: '600px',
-    width: '90%'
-  },
-  modalHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '1.5rem'
-  },
-  closeBtn: {
-    background: 'none',
-    border: 'none',
-    color: '#94a3b8',
-    fontSize: '1.5rem',
-    cursor: 'pointer',
-    padding: 0,
-    width: '2rem',
-    height: '2rem'
-  },
-  modalActions: {
-    display: 'flex',
-    gap: '1rem',
-    marginTop: '1.5rem'
-  },
-  uploadArea: {
-    border: '2px dashed #1f2937',
-    borderRadius: '0.5rem',
-    padding: '3rem',
-    textAlign: 'center'
-  },
-  fileInput: {
-    display: 'none'
-  },
-  uploadLabel: {
-    cursor: 'pointer',
-    display: 'block'
-  },
-  uploadContent: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: '0.5rem'
-  },
-  uploadIcon: {
-    fontSize: '3rem'
-  },
-  uploadHint: {
-    fontSize: '0.875rem',
-    color: '#94a3b8'
-  },
-  tableContainer: {
-    overflowX: 'auto'
-  }
 };
 
 export default Admin;

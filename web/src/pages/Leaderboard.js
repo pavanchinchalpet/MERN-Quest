@@ -1,327 +1,217 @@
-import React, { useState, useEffect } from 'react';
-import api from '../services/api';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import api, { getErrorMessage, unwrapResponse } from '../services/api';
 
 const Leaderboard = () => {
-  const [leaderboard, setLeaderboard] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const { user } = useAuth();
   const [search, setSearch] = useState('');
-  const [sortBy, setSortBy] = useState('points'); // 'points' | 'streak' | 'level'
-  const [activeTab, setActiveTab] = useState('global'); // 'global' | 'friends'
-  const { user: currentUser } = useAuth();
-
-  const loadLeaderboard = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const response = await api.get('/user/leaderboard');
-      const leaderboardData = response.data;
-
-      const leaderboardWithCurrentUser = leaderboardData.map(user => ({
-        ...user,
-        isCurrentUser: currentUser && (user._id === currentUser.id || user.id === currentUser.id)
-      }));
-
-      setLeaderboard(leaderboardWithCurrentUser);
-    } catch (error) {
-      console.error('Error loading leaderboard:', error);
-      setError('Failed to load leaderboard. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [entries, setEntries] = useState([]);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const loadLeaderboard = async () => {
+      try {
+        const response = await api.get('/user/leaderboard');
+        setEntries(unwrapResponse(response) || []);
+      } catch (err) {
+        setError(getErrorMessage(err, 'Unable to load leaderboard'));
+      } finally {
+        setLoading(false);
+      }
+    };
+
     loadLeaderboard();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const filteredEntries = useMemo(
+    () =>
+      entries.filter((entry) =>
+        entry.username?.toLowerCase().includes(search.toLowerCase())
+      ),
+    [entries, search]
+  );
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-8">
-        <div className="w-16 h-16 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin mb-6"></div>
-        <h3 className="text-2xl font-bold text-slate-100 mb-2">Loading Leaderboard...</h3>
-        <p className="text-slate-400 font-medium">Fetching the top performers</p>
+      <div className="flex-grow flex items-center justify-center min-h-[70vh]">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-dark-border border-t-brand-primary" />
       </div>
     );
   }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-8 text-center">
-        <div className="text-6xl mb-6">⚠️</div>
-        <h3 className="text-2xl font-bold text-red-400 mb-4">{error}</h3>
-        <button 
-          onClick={loadLeaderboard}
-          className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 px-8 rounded-xl shadow-lg transition-all active:scale-95"
-        >
-          Try Again
-        </button>
-      </div>
-    );
-  }
-
-  const filtered = leaderboard
-    .filter(u => u.username.toLowerCase().includes(search.toLowerCase()))
-    .sort((a, b) => {
-      if (sortBy === 'points') return (b.totalPoints || b.points || 0) - (a.totalPoints || a.points || 0);
-      if (sortBy === 'streak') return (b.streak || 0) - (a.streak || 0);
-      if (sortBy === 'level') return (b.level || 0) - (a.level || 0);
-      return 0;
-    });
 
   return (
-    <div className="min-h-screen bg-slate-900 font-sans pb-24 text-slate-100">
-      
-      {/* Header Layout */}
-      <div className="bg-gradient-to-br from-slate-900 via-indigo-950/40 to-slate-900 border-b border-indigo-500/10 p-12 lg:p-16 relative overflow-hidden text-center">
-        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-5 mix-blend-overlay"></div>
-        <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-[100px] pointer-events-none -mr-48 -mt-48"></div>
-        <div className="absolute top-0 left-0 w-96 h-96 bg-blue-500/10 rounded-full blur-[100px] pointer-events-none -ml-48 -mt-48"></div>
-        
-        <div className="relative z-10 max-w-4xl mx-auto">
-          <h1 className="text-5xl lg:text-6xl font-extrabold text-white mb-6 tracking-tight drop-shadow-md flex items-center justify-center gap-4">
-            <span className="text-6xl drop-shadow-xl animate-bounce">🏆</span> Global Leaderboard
-          </h1>
-          <p className="text-xl text-indigo-200/80 font-medium">See how you rank among MERN stack learners worldwide</p>
-        </div>
-      </div>
-
-      {/* Controls Bar */}
-      <div className="max-w-7xl mx-auto px-6 py-8 relative z-20 -mt-10">
-        <div className="bg-slate-800/80 backdrop-blur-xl border border-slate-700/50 p-4 rounded-2xl shadow-2xl flex flex-col md:flex-row gap-4 items-center align-middle justify-between">
-          <div className="flex bg-slate-900/80 p-1.5 rounded-xl border border-slate-700 w-full md:w-auto">
-            {['global','friends'].map(tab => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`flex-1 md:flex-none px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${
-                  activeTab === tab 
-                    ? 'bg-indigo-500 text-white shadow-md' 
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-                }`}
-              >
-                {tab === 'global' ? '🌍 Global' : '👥 Friends'}
-              </button>
-            ))}
+    <div className="mx-auto max-w-6xl px-4 pb-16 animate-fade-in text-text-primary">
+      {/* Header Section */}
+      <section className="glass-panel overflow-hidden relative mb-10 bg-white">
+        <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-bl from-brand-primary/10 to-transparent z-0"></div>
+        <div className="relative z-10 p-8 sm:p-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <div className="max-w-xl">
+            <div className="badge badge-primary mb-4 flex items-center gap-2 w-max shadow-sm">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+              </svg>
+              Global Rankings
+            </div>
+            <h1 className="heading-1">Top Performers</h1>
+            <p className="text-muted text-lg mt-3">
+              See how you stack up against the community. Rankings are based on total XP earned from modules and challenges.
+            </p>
           </div>
           
-          <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
-            <div className="relative group">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-400 transition-colors">🔍</span>
+          <div className="w-full md:w-auto md:min-w-[300px]">
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-text-tertiary">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
               <input
+                className="input-field pl-12 bg-dark-surface focus:bg-white border-2 border-dark-border shadow-sm"
+                placeholder="Search competitors..."
                 value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Search user..."
-                className="w-full sm:w-64 bg-slate-900/80 border border-slate-700 text-slate-100 rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-medium placeholder:text-slate-500"
+                onChange={(event) => setSearch(event.target.value)}
               />
             </div>
-            
-            <select
-              value={sortBy}
-              onChange={e => setSortBy(e.target.value)}
-              className="w-full sm:w-auto bg-slate-900/80 border border-slate-700 text-slate-100 rounded-xl py-3 px-5 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-bold cursor-pointer appearance-none pr-10 relative bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cpath%20d%3D%22M7%2010L12%2015L17%2010%22%20stroke%3D%22%2394A3B8%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-[length:24px_24px] bg-[right_8px_center] bg-no-repeat"
-            >
-              <option value="points">Sort: Total Points</option>
-              <option value="streak">Sort: Daily Streak</option>
-              <option value="level">Sort: Current Level</option>
-            </select>
           </div>
         </div>
-      </div>
+      </section>
 
-      <div className="max-w-7xl mx-auto px-6">
-        {leaderboard.length === 0 ? (
-          <div className="text-center p-16 bg-slate-800/50 rounded-3xl border border-slate-700 shadow-xl max-w-3xl mx-auto mt-8">
-            <div className="text-6xl mb-6 opacity-80">📊</div>
-            <h3 className="text-2xl font-bold text-slate-200 mb-3">No data available</h3>
-            <p className="text-slate-400 font-medium">Be the first to take a quiz and conquer the leaderboard!</p>
-          </div>
-        ) : (
-          <>
-            {/* Top 3 Podium */}
-            <div className="py-12 mt-4">
-              <h2 className="text-center text-3xl font-extrabold text-white mb-16 tracking-wide uppercase drop-shadow-md">
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-amber-400 to-amber-200">Hall of Fame</span>
-              </h2>
-              
-              <div className="flex flex-col lg:flex-row justify-center items-end gap-6 max-w-5xl mx-auto px-4">
-                
-                {/* 2nd Place */}
-                {leaderboard[1] && (
-                  <div className="w-full lg:w-1/3 order-2 lg:order-1 relative bg-slate-800/80 border border-slate-700/50 rounded-3xl p-8 text-center shadow-[0_8px_30px_rgb(0,0,0,0.5)] transform hover:-translate-y-2 transition-all duration-300">
-                    <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-slate-700 text-slate-200 px-4 py-1.5 rounded-full font-black text-sm border border-slate-600 shadow-md">#2</div>
-                    <div className="text-4xl mb-4 drop-shadow-xl">🥈</div>
-                    <div className="w-24 h-24 mx-auto mb-5 rounded-full flex items-center justify-center text-white text-3xl font-black bg-gradient-to-tr from-slate-500 to-slate-400 shadow-[0_0_20px_rgba(148,163,184,0.3)] border-4 border-slate-800">
-                      {leaderboard[1].avatar === 'default' ? leaderboard[1].username.charAt(0).toUpperCase() : leaderboard[1].avatar}
-                    </div>
-                    <h3 className="text-xl font-extrabold text-white mb-2 line-clamp-1">{leaderboard[1].username}</h3>
-                    <div className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-slate-300 to-slate-200 mb-2 drop-shadow-sm">
-                      {(leaderboard[1].totalPoints || leaderboard[1].points || 0).toLocaleString()} <span className="text-sm font-bold text-slate-500 uppercase tracking-widest">pts</span>
-                    </div>
-                    <div className="text-sm font-bold text-slate-400 bg-slate-900/50 py-2 rounded-xl mt-4 border border-slate-700/50">
-                      Lvl {leaderboard[1].level || 1} • <span className="text-orange-400">{leaderboard[1].streak || 0}🔥</span>
-                    </div>
-                  </div>
-                )}
+      {error && (
+        <div className="mb-8 rounded-lg border border-brand-danger/30 bg-brand-danger/10 p-4">
+          <p className="text-sm font-medium text-brand-danger">{error}</p>
+        </div>
+      )}
 
-                {/* 1st Place */}
-                {leaderboard[0] && (
-                  <div className="w-full lg:w-[40%] order-1 lg:order-2 relative bg-gradient-to-b from-indigo-900/80 to-slate-900 border border-indigo-500/30 rounded-t-3xl rounded-b-xl lg:rounded-b-3xl p-10 text-center shadow-[0_0_40px_rgba(79,70,229,0.25)] transform hover:-translate-y-2 lg:-translate-y-8 transition-all duration-300 z-10">
-                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-amber-400 to-transparent opacity-70"></div>
-                    <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-gradient-to-r from-amber-500 to-amber-600 text-white px-5 py-2 rounded-full font-black text-sm border-2 border-slate-900 shadow-xl shadow-amber-500/20">#1</div>
-                    <div className="text-5xl mb-5 drop-shadow-[0_0_15px_rgba(251,191,36,0.5)] animate-pulse">👑</div>
-                    <div className="w-32 h-32 mx-auto mb-6 rounded-full flex items-center justify-center text-white text-5xl font-black bg-gradient-to-tr from-amber-400 via-yellow-500 to-amber-600 shadow-[0_0_30px_rgba(251,191,36,0.4)] border-4 border-slate-900">
-                      {leaderboard[0].avatar === 'default' ? leaderboard[0].username.charAt(0).toUpperCase() : leaderboard[0].avatar}
-                    </div>
-                    <h3 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-indigo-200 mb-2 line-clamp-1">{leaderboard[0].username}</h3>
-                    <div className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-amber-400 to-yellow-500 mb-3 drop-shadow-md">
-                      {(leaderboard[0].totalPoints || leaderboard[0].points || 0).toLocaleString()} <span className="text-lg font-bold text-amber-500/60 uppercase tracking-widest">pts</span>
-                    </div>
-                    <div className="text-sm font-bold text-indigo-200 bg-indigo-950/50 py-2.5 rounded-xl border border-indigo-500/20 mt-6 shadow-inner">
-                      Level {leaderboard[0].level || 1} • <span className="text-orange-400">{leaderboard[0].streak || 0} Streak 🔥</span>
-                    </div>
-                  </div>
-                )}
-
-                {/* 3rd Place */}
-                {leaderboard[2] && (
-                  <div className="w-full lg:w-1/3 order-3 lg:order-3 relative bg-slate-800/80 border border-slate-700/50 rounded-3xl p-8 text-center shadow-[0_8px_30px_rgb(0,0,0,0.5)] transform hover:-translate-y-2 transition-all duration-300">
-                    <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-slate-700 text-slate-200 px-4 py-1.5 rounded-full font-black text-sm border border-slate-600 shadow-md">#3</div>
-                    <div className="text-4xl mb-4 drop-shadow-xl">🥉</div>
-                    <div className="w-24 h-24 mx-auto mb-5 rounded-full flex items-center justify-center text-white text-3xl font-black bg-gradient-to-tr from-orange-800 to-orange-700 shadow-[0_0_20px_rgba(194,65,12,0.3)] border-4 border-slate-800">
-                      {leaderboard[2].avatar === 'default' ? leaderboard[2].username.charAt(0).toUpperCase() : leaderboard[2].avatar}
-                    </div>
-                    <h3 className="text-xl font-extrabold text-white mb-2 line-clamp-1">{leaderboard[2].username}</h3>
-                    <div className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-orange-300 to-orange-400 mb-2 drop-shadow-sm">
-                      {(leaderboard[2].totalPoints || leaderboard[2].points || 0).toLocaleString()} <span className="text-sm font-bold text-orange-900/60 uppercase tracking-widest">pts</span>
-                    </div>
-                    <div className="text-sm font-bold text-slate-400 bg-slate-900/50 py-2 rounded-xl mt-4 border border-slate-700/50">
-                      Lvl {leaderboard[2].level || 1} • <span className="text-orange-400">{leaderboard[2].streak || 0}🔥</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Complete Rankings List */}
-            <div className="mt-12">
-              <div className="bg-slate-800/50 border border-slate-700/80 rounded-3xl overflow-hidden shadow-2xl backdrop-blur-md">
-                <div className="bg-gradient-to-r from-slate-800 to-slate-900 border-b border-slate-700/80 p-6 lg:p-8">
-                  <h3 className="text-2xl font-extrabold text-white m-0 flex items-center gap-3 tracking-tight">
-                    <span className="text-3xl drop-shadow-md">📊</span> Complete Rankings
-                  </h3>
-                  <p className="text-slate-400 font-medium mt-2">All participants ranked globally</p>
+      {/* Podium Section (Top 3) */}
+      {!search && filteredEntries.length >= 3 && (
+        <div className="grid md:grid-cols-3 gap-6 mb-12 px-4 md:px-4">
+          {[1, 0, 2].map((podiumIndex) => {
+            const entry = filteredEntries[podiumIndex];
+            if (!entry) return null;
+            
+            const isFirst = podiumIndex === 0;
+            const rank = podiumIndex + 1;
+            
+            return (
+              <div 
+                key={entry.id} 
+                className={`glass-card relative flex flex-col items-center p-6 text-center transform transition-transform hover:-translate-y-1 bg-white
+                  ${isFirst ? 'md:-mt-6 border-brand-primary shadow-glow-primary scale-105 z-10' : 'mt-4 border-dark-border shadow-sm'}
+                `}
+              >
+                <div className={`absolute -top-5 flex items-center justify-center w-10 h-10 rounded-full font-black text-lg border-2 bg-white shadow-sm
+                  ${rank === 1 ? 'border-brand-primary text-brand-primary' : rank === 2 ? 'border-text-tertiary text-text-tertiary' : 'border-amber-600 text-amber-600'}
+                `}>
+                  {rank}
                 </div>
                 
-                <div className="p-4 lg:p-6 flex flex-col gap-3 max-h-[600px] overflow-y-auto custom-scrollbar pr-2">
-                  {filtered.map((user, index) => {
-                    const rank = index + 1;
-                    const isCurrentUser = user.isCurrentUser;
-                    return (
-                      <div
-                        key={user._id || user.id}
-                        className={`flex items-center gap-4 lg:gap-6 p-4 lg:p-5 rounded-2xl border transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 group ${
-                          isCurrentUser 
-                            ? 'bg-indigo-900/20 border-indigo-500/50 shadow-indigo-500/5' 
-                            : 'bg-slate-900/60 border-slate-700 hover:bg-slate-800/80 hover:border-slate-600'
-                        }`}
-                      >
-                        <div className={`text-xl font-black shrink-0 w-12 text-center ${
-                          rank === 1 ? 'text-amber-400' : rank === 2 ? 'text-slate-300' : rank === 3 ? 'text-orange-400' : 'text-slate-500 group-hover:text-slate-400'
-                        }`}>
-                          #{rank}
+                <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-4 mt-6 border-2
+                  ${rank === 1 ? 'bg-brand-primary/10 text-brand-primary border-brand-primary/20' : 'bg-dark-surface text-text-secondary border-dark-border'}
+                `}>
+                  <span className="text-3xl font-black">{entry.username.charAt(0).toUpperCase()}</span>
+                </div>
+                
+                <h3 className="text-xl font-bold text-text-primary mb-1">{entry.username}</h3>
+                <div className="badge badge-neutral mb-4 text-xs font-bold border-dark-border bg-dark-surface">Level {entry.level || 1}</div>
+                
+                <div className="w-full grid grid-cols-2 gap-2 border-t border-dark-border pt-4 mt-2">
+                  <div>
+                    <div className="text-xs text-text-tertiary font-bold uppercase tracking-wider mb-1">XP</div>
+                    <div className="text-lg font-black text-brand-primary">{entry.points || 0}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-text-tertiary font-bold uppercase tracking-wider mb-1">Streak</div>
+                    <div className="text-lg font-black text-brand-warning flex items-center justify-center gap-1">
+                      {entry.streak || 0}
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z" clipRule="evenodd" /></svg>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Main Leaderboard Table */}
+      <div className="glass-panel overflow-hidden bg-white shadow-sm border border-dark-border">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-dark-surface border-b border-dark-border text-xs font-bold tracking-wider text-text-tertiary uppercase">
+                <th className="px-6 py-4 w-20 text-center">Rank</th>
+                <th className="px-6 py-4">Developer</th>
+                <th className="px-6 py-4 text-center">Level</th>
+                <th className="px-6 py-4 text-center hidden sm:table-cell">Fire Streak</th>
+                <th className="px-6 py-4 text-right">Total XP</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-dark-border">
+              {filteredEntries.map((entry, index) => {
+                const isCurrentUser = entry.id === user?.id;
+                
+                return (
+                  <tr 
+                    key={entry.id} 
+                    className={`transition-colors hover:bg-dark-surface/50 ${isCurrentUser ? 'bg-brand-primary/5 hover:bg-brand-primary/10' : ''}`}
+                  >
+                    <td className="px-6 py-4">
+                      <div className="flex justify-center">
+                        <span className={`w-8 h-8 flex items-center justify-center rounded font-bold text-sm border-2
+                          ${index === 0 ? 'bg-brand-primary/10 border-brand-primary/30 text-brand-primary' : 
+                            index === 1 ? 'bg-slate-100 border-slate-300 text-slate-500' : 
+                            index === 2 ? 'bg-amber-50 border-amber-300 text-amber-600' : 
+                            'text-text-secondary bg-white border-dark-border group-hover:bg-dark-surface'}
+                        `}>
+                          #{index + 1}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded shadow-sm bg-dark-surface border border-dark-border flex items-center justify-center text-text-primary font-black shrink-0">
+                          {entry.username.charAt(0).toUpperCase()}
                         </div>
-                        
-                        <div className="w-12 h-12 lg:w-14 lg:h-14 rounded-full flex shrink-0 items-center justify-center font-black text-xl bg-slate-800 border-2 border-slate-700 shadow-inner text-slate-300">
-                          {user.avatar === 'default' ? user.username.charAt(0).toUpperCase() : user.avatar}
-                        </div>
-                        
-                        <div className="flex-1 min-w-0">
-                          <h4 className="m-0 text-lg lg:text-xl font-bold text-slate-100 truncate flex items-center gap-3">
-                            {user.username}
-                            {isCurrentUser && (
-                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-500 text-white shadow-md">
-                                You
-                              </span>
-                            )}
-                          </h4>
-                          <p className="m-0 mt-0.5 text-sm font-semibold text-slate-500">Level {user.level || 1}</p>
-                        </div>
-                        
-                        <div className="text-right shrink-0">
-                          <div className={`text-lg lg:text-xl font-extrabold ${isCurrentUser ? 'text-indigo-300' : 'text-slate-200'}`}>
-                            {(user.totalPoints || user.points || 0).toLocaleString()} <span className="text-xs font-bold uppercase tracking-widest text-slate-500">pts</span>
+                        <div>
+                          <div className={`font-bold text-base ${isCurrentUser ? 'text-brand-primary' : 'text-text-primary'}`}>
+                            {entry.username} {isCurrentUser && <span className="text-[10px] uppercase font-bold ml-2 text-white bg-brand-primary px-2 py-0.5 rounded shadow-sm">You</span>}
                           </div>
-                          <div className="text-sm font-semibold text-orange-400/80 mt-0.5">
-                            {user.streak || 0} day streak 🔥
-                          </div>
+                          <div className="text-xs text-text-tertiary block sm:hidden mt-0.5 font-medium">{entry.streak || 0} day streak</div>
                         </div>
                       </div>
-                    );
-                  })}
-                  {filtered.length === 0 && (
-                    <div className="text-center py-12 text-slate-500 font-medium">
-                      No users found matching your search.
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </>
-        )}
-
-        {/* Tips Section */}
-        <div className="mt-12 lg:mt-16 bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl border border-slate-700 p-8 lg:p-10 shadow-xl overflow-hidden relative group">
-          <div className="absolute -right-20 -top-20 w-64 h-64 bg-indigo-500/5 rounded-full blur-[80px] pointer-events-none group-hover:bg-indigo-500/10 transition-colors duration-700"></div>
-          <h3 className="text-2xl font-extrabold text-white mb-8 relative z-10 flex items-center gap-3">
-            <span>🚀</span> How to climb the ranks
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8 relative z-10">
-            <div className="bg-slate-900/50 p-6 rounded-2xl border border-slate-700/50 transform transition-all group-hover:-translate-y-1">
-              <div className="text-3xl mb-3 drop-shadow-md">📚</div>
-              <h4 className="font-bold text-slate-200 mb-1 text-lg">Take Quizzes</h4>
-              <p className="text-slate-400 text-sm font-medium">Earn points with every quest attempt and completion.</p>
-            </div>
-            <div className="bg-slate-900/50 p-6 rounded-2xl border border-slate-700/50 transform transition-all group-hover:-translate-y-1 delay-75">
-              <div className="text-3xl mb-3 drop-shadow-md">🎯</div>
-              <h4 className="font-bold text-slate-200 mb-1 text-lg">Be Accurate</h4>
-              <p className="text-slate-400 text-sm font-medium">Higher accuracy and speed equals massive point multipliers.</p>
-            </div>
-            <div className="bg-slate-900/50 p-6 rounded-2xl border border-slate-700/50 transform transition-all group-hover:-translate-y-1 delay-150">
-              <div className="text-3xl mb-3 drop-shadow-md">🔥</div>
-              <h4 className="font-bold text-slate-200 mb-1 text-lg">Keep Streaks</h4>
-              <p className="text-slate-400 text-sm font-medium">Learning daily unlocks streak bonuses and exclusive badges.</p>
-            </div>
-            <div className="bg-slate-900/50 p-6 rounded-2xl border border-slate-700/50 transform transition-all group-hover:-translate-y-1 delay-200">
-              <div className="text-3xl mb-3 drop-shadow-md">🏆</div>
-              <h4 className="font-bold text-slate-200 mb-1 text-lg">Earn Badges</h4>
-              <p className="text-slate-400 text-sm font-medium">Complete milestone challenges for massive XP dumps.</p>
-            </div>
-          </div>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <span className="inline-flex items-center justify-center px-3 py-1 rounded border-2 bg-white text-sm font-bold text-text-secondary border-dark-border shadow-sm">
+                        {entry.level || 1}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-center hidden sm:table-cell">
+                      <div className="flex items-center justify-center gap-1.5 text-brand-warning font-bold">
+                        {entry.streak || 0}
+                        <svg className="w-5 h-5 drop-shadow-sm" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z" clipRule="evenodd" /></svg>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <span className="font-mono text-lg font-black text-brand-primary drop-shadow-sm">
+                        {entry.points?.toLocaleString() || 0}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+              
+              {filteredEntries.length === 0 && (
+                <tr>
+                  <td colSpan="5" className="px-6 py-12 text-center text-text-secondary font-medium">
+                    No competitors found matching your search.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
-
       </div>
-
-      <style dangerouslySetInnerHTML={{__html: `
-        .custom-scrollbar::-webkit-scrollbar {
-            width: 8px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-            background: rgba(15, 23, 42, 0.5);
-            border-radius: 10px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: rgba(71, 85, 105, 0.5);
-            border-radius: 10px;
-            border: 2px solid rgba(15, 23, 42, 0.5);
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-            background: rgba(99, 102, 241, 0.5);
-        }
-      `}} />
     </div>
   );
 };

@@ -1,24 +1,16 @@
-import { render, screen } from "@testing-library/react";
-import Register from "../pages/Register";
-import { BrowserRouter } from "react-router-dom";
-import { AuthContext } from "../context/AuthContext";
+import { render, screen } from '@testing-library/react';
+import { BrowserRouter } from 'react-router-dom';
+import Register from '../pages/Register';
+import { AuthContext } from '../context/AuthContext';
 
-const mockAuth = {
-  user: null,
-  loading: false,
-  register: jest.fn(() => Promise.resolve({ success: true })),
-  error: null,
-  setError: jest.fn()
-};
-
-test("renders register page", () => {
+test('renders register page', () => {
   render(
-    <AuthContext.Provider value={mockAuth}>
-      <BrowserRouter>
+    <AuthContext.Provider value={{ user: null, loading: false, register: jest.fn() }}>
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Register />
       </BrowserRouter>
     </AuthContext.Provider>
   );
 
-  expect(screen.getByText(/create account/i)).toBeInTheDocument();
+  expect(screen.getByText(/create learner account/i)).toBeInTheDocument();
 });
