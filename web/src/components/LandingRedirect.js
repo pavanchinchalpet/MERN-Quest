@@ -7,11 +7,7 @@ const LandingRedirect = () => {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return (
-      <div className="flex-grow flex items-center justify-center min-h-screen bg-dark-bg text-text-primary">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-dark-border border-t-brand-primary" />
-      </div>
-    );
+    return <Landing />;
   }
 
   if (user) {
