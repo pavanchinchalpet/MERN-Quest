@@ -1,0 +1,15 @@
+[
+  {
+    "title": "Reverse a String",
+    "category": "Java",
+    "subcategory": "Basics",
+    "description": "Write a Java method to reverse a given string.",
+    "difficulty": "easy",
+    "starter_code": "public String reverse(String s) {\n    // Write your code here\n}",
+    "solution_code": "public String reverse(String s) {\n    return new StringBuilder(s).reverse().toString();\n}",
+    "test_cases": [
+      { "input": "['hello']", "output": "'olleh'" }
+    ],
+    "points": 10
+  }
+]

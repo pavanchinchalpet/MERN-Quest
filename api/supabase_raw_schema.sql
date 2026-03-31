@@ -89,6 +89,8 @@ CREATE TABLE IF NOT EXISTS public.coding_practices (
     solution_code TEXT,
     test_cases JSONB,
     points INTEGER DEFAULT 20,
+    category VARCHAR(50) DEFAULT 'General',
+    subcategory VARCHAR(50) DEFAULT 'Basics',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 

@@ -6,33 +6,51 @@ async function seed() {
   console.log('🚀 Starting Seeding Process...');
 
   try {
-    // 1. Get or Create 'General' Category
-    let { data: category, error: catError } = await supabase
-      .from('quiz_categories')
-      .select('id')
-      .eq('name', 'general')
-      .single();
+    // 1. Get or Create Categories
+    const categoriesToEnsure = [
+      { name: 'general', title: 'General Web Development' },
+      { name: 'react', title: 'React Assessment' },
+      { name: 'javascript', title: 'Javascript Assessment' },
+      { name: 'nodejs', title: 'Node.js Assessment' },
+      { name: 'tcs', title: 'TCS Assessment' },
+      { name: 'git', title: 'Git Assessment' },
+      { name: 'reasoning', title: 'Reasoning Assessment' },
+      { name: 'arithmetic', title: 'Arithmetic Assessment' }
+    ];
 
-    if (catError && catError.code !== 'PGRST116') throw catError;
+    const categoryMap = {};
 
-    if (!category) {
-      const { data: newCat, error: insError } = await supabase
+    for (const cat of categoriesToEnsure) {
+      let { data: category, error: catError } = await supabase
         .from('quiz_categories')
-        .insert([{ name: 'general', title: 'General Web Development' }])
-        .select()
+        .select('id')
+        .eq('name', cat.name)
         .single();
-      if (insError) throw insError;
-      category = newCat;
-    }
 
-    console.log('✅ Category confirmed:', category.id);
+      if (catError && catError.code !== 'PGRST116') throw catError;
+
+      if (!category) {
+        const { data: newCat, error: insError } = await supabase
+          .from('quiz_categories')
+          .insert([cat])
+          .select()
+          .single();
+        if (insError) throw insError;
+        category = newCat;
+      }
+      categoryMap[cat.name] = category.id;
+      console.log(`✅ Category confirmed: ${cat.name} (${category.id})`);
+    }
 
     // 2. Seed Quizzes
     console.log('⌛ Seeding Quizzes...');
     const quizzesToInsert = quizzes.map(q => ({
       ...q,
-      category_id: category.id
+      category_id: categoryMap[q.category] || categoryMap['general']
     }));
+
+    // Remove the temporary 'category' slug before insert to match schema
+    quizzesToInsert.forEach(q => delete q.category);
 
     const { error: quizError } = await supabase
       .from('quizzes')
@@ -41,14 +59,22 @@ async function seed() {
     if (quizError) throw quizError;
     console.log(`✅ ${quizzes.length} Quizzes seeded.`);
 
-    // 3. Seed DSA Challenges
-    console.log('⌛ Seeding DSA Challenges...');
+    // 3. Seed Practice Challenges (All Categories)
+    console.log('⌛ Seeding Practice Challenges...');
+    const dsa = require('./data/dsa.json');
+    const react = require('./data/react.json');
+    const sql = require('./data/sql.json');
+    const python = require('./data/python.json');
+    const java = require('./data/java.json');
+
+    const allPractices = [...dsa, ...react, ...sql, ...python, ...java];
+
     const { error: dsaError } = await supabase
       .from('coding_practices')
-      .insert(dsa);
+      .insert(allPractices);
 
     if (dsaError) throw dsaError;
-    console.log(`✅ ${dsa.length} DSA Challenges seeded.`);
+    console.log(`✅ ${allPractices.length} Practice Challenges seeded across all categories.`);
 
     console.log('✨ Seeding Completed Successfully!');
   } catch (err) {

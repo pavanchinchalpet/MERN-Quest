@@ -11,35 +11,93 @@ const PracticeWorkspace = () => {
   const [submitting, setSubmitting] = useState(false);
   const [testResults, setTestResults] = useState(null);
 
+  const evaluateCode = useCallback((userCode) => {
+    let passedCount = 0;
+    let logs = [];
+
+    try {
+      // Find the function name from the code or problem title
+      // Most problems start with 'function functionName(...)'
+      const functionMatch = userCode.match(/function\s+([a-zA-Z0-9_]+)\s*\(/);
+      const functionName = functionMatch ? functionMatch[1] : null;
+
+      if (!functionMatch) {
+        throw new Error("Could not find a function definition. Please use: function functionName(...) { ... }");
+      }
+
+      // Create a temporary script to execute the function
+      // Warning: This is a simplified local evaluator for demo purposes.
+      // In production, use a sandboxed worker or backend execution.
+      const fullCode = `
+        ${userCode}
+        return (args) => ${functionName}(...args);
+      `;
+      // eslint-disable-next-line no-new-func
+      const executor = new Function(fullCode)();
+
+      problem.test_cases.forEach((t, idx) => {
+        try {
+          // Parse input: "[1,2,3], 9" -> [[1,2,3], 9]
+          // eslint-disable-next-line no-new-func
+          const args = new Function(`return [${t.input}]`)();
+          // eslint-disable-next-line no-new-func
+          const expected = new Function(`return ${t.output}`)();
+          const actual = executor(args);
+
+          const isMatch = JSON.stringify(actual) === JSON.stringify(expected);
+
+          if (isMatch) {
+            passedCount++;
+            logs.push(`✅ Case ${idx + 1}: Passed`);
+          } else {
+            logs.push(`❌ Case ${idx + 1}: Failed. Expected ${JSON.stringify(expected)}, but got ${JSON.stringify(actual)}`);
+          }
+        } catch (err) {
+          logs.push(`❌ Case ${idx + 1}: Error - ${err.message}`);
+        }
+      });
+
+      return {
+        success: passedCount === problem.test_cases.length,
+        passed: passedCount,
+        total: problem.test_cases.length,
+        output: logs.join('\n')
+      };
+    } catch (err) {
+      return {
+        success: false,
+        passed: 0,
+        total: problem.test_cases.length,
+        output: `Error in your code: ${err.message}`
+      };
+    }
+  }, [problem]);
+
   const handleSubmit = useCallback(async () => {
     if (!problem || submitting) return;
     setSubmitting(true);
     setTestResults(null);
 
-    try {
-      // In a real app, this would send to a code execution engine (Piston, Judge0, etc.)
-      // For now, we simulate a secure submission to the scores table
-      await api.post('/practices/submit', {
-        id,
-        score: 100
-      });
+    const results = evaluateCode(code);
+    setTestResults(results);
 
-      setTestResults({
-        success: true,
-        passed: problem.test_cases.length,
-        total: problem.test_cases.length,
-        output: "✅ Solution Accepted! Your score has been recorded."
-      });
-    } catch (err) {
-      console.error(err);
-      setTestResults({
-        success: false,
-        output: "Error submitting solution. Please try again."
-      });
-    } finally {
-      setSubmitting(false);
+    if (results.success) {
+      try {
+        await api.post('/practices/submit', {
+          id,
+          score: problem.points || 100
+        });
+        setTestResults(prev => ({
+          ...prev,
+          output: prev.output + "\n\n✨ Solution Accepted! Your score has been recorded."
+        }));
+      } catch (err) {
+        console.error(err);
+      }
     }
-  }, [id, problem, submitting]);
+
+    setSubmitting(false);
+  }, [id, problem, submitting, code, evaluateCode]);
 
   useEffect(() => {
     const fetchProblem = async () => {
@@ -61,18 +119,13 @@ const PracticeWorkspace = () => {
     setSubmitting(true);
     setTestResults(null);
     
-    // Simulate code execution locally for now (can be expanded to backend execution)
+    // Simulate short delay for "Run Code" feel
     setTimeout(() => {
+      const results = evaluateCode(code);
+      setTestResults(results);
       setSubmitting(false);
-      // Mocking 100% success for demonstration
-      setTestResults({
-        success: true,
-        passed: problem.test_cases.length,
-        total: problem.test_cases.length,
-        output: "Test cases passed successfully."
-      });
-    }, 1500);
-  }, [problem]);
+    }, 800);
+  }, [code, evaluateCode]);
 
   if (loading) {
     return (

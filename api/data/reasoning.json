@@ -1,0 +1,15 @@
+[
+  {
+    "title": "Blood Relations",
+    "category": "Reasoning",
+    "subcategory": "Logical",
+    "description": "Pointing to a photograph of a boy Suresh said, 'He is the son of the only son of my mother.' How is Suresh related to that boy?",
+    "difficulty": "easy",
+    "starter_code": "// Select the correct option\n// A. Brother\n// B. Uncle\n// C. Cousin\n// D. Father",
+    "solution_code": "D",
+    "test_cases": [
+      { "input": "[]", "output": "D" }
+    ],
+    "points": 10
+  }
+]

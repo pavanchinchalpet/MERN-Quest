@@ -1,10 +1,31 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import api, { unwrapResponse } from '../services/api';
+
+const categories = [
+  { id: 'all', name: 'All Practice', icon: '🎯' },
+  { 
+    id: 'dsa', 
+    name: 'DSA', 
+    icon: '📂',
+    subcategories: ['Arrays', 'Strings', 'HashMap', 'Trees', 'Graphs', 'DP']
+  },
+  { 
+    id: 'react', 
+    name: 'React', 
+    icon: '⚛️',
+    subcategories: ['Hooks', 'State Management', 'Components', 'Performance', 'Interview Questions']
+  },
+  { id: 'sql', name: 'SQL', icon: '🗄️', subcategories: ['Joins', 'Aggregation', 'Query Optimization', 'Indexes'] },
+  { id: 'python', name: 'Python', icon: '🐍', subcategories: ['Basics', 'Data Structures', 'Algorithms', 'Functions'] },
+  { id: 'java', name: 'Java', icon: '☕', subcategories: ['OOPs', 'Collections', 'Multithreading', 'Basics'] },
+];
 
 const Practice = () => {
   const [practices, setPractices] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [activeCategory, setActiveCategory] = useState('all');
+  const [activeSubcategory, setActiveSubcategory] = useState('all');
 
   useEffect(() => {
     const fetchPractices = async () => {
@@ -20,6 +41,16 @@ const Practice = () => {
     fetchPractices();
   }, []);
 
+  const filteredPractices = useMemo(() => {
+    return practices.filter(p => {
+      const matchCategory = activeCategory === 'all' || p.category?.toLowerCase() === activeCategory.toLowerCase();
+      const matchSubcategory = activeSubcategory === 'all' || p.subcategory?.toLowerCase() === activeSubcategory.toLowerCase();
+      return matchCategory && matchSubcategory;
+    });
+  }, [practices, activeCategory, activeSubcategory]);
+
+  const currentCategoryData = categories.find(c => c.id === activeCategory);
+
   if (loading) {
     return (
       <div className="flex-grow flex items-center justify-center min-h-[50vh]">
@@ -29,48 +60,143 @@ const Practice = () => {
   }
 
   return (
-    <div className="max-w-5xl mx-auto py-8 px-4">
-      <header className="mb-10 text-center">
-        <h1 className="text-3xl font-black text-text-primary mb-3">Practice Algorithms</h1>
-        <p className="text-text-secondary max-w-2xl mx-auto">
-          Master Data Structures and Algorithms with these hand-picked challenges. Solving these will improve your problem-solving skills for interviews.
+    <div className="max-w-7xl mx-auto py-8 px-4 md:px-8">
+      <header className="mb-10">
+        <h1 className="text-3xl font-black text-text-primary mb-3">Practice Workspace</h1>
+        <p className="text-text-secondary max-w-2xl">
+          Master interview-critical skills by solving hand-picked challenges across different domains and categories.
         </p>
       </header>
 
-      <div className="grid gap-6">
-        {practices.map((item) => (
-          <div key={item.id} className="glass-panel p-6 hover:border-brand-primary/50 transition-all group">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-              <div className="flex items-start gap-4">
-                <div className={`mt-1 h-12 w-12 rounded-lg flex items-center justify-center shrink-0 border-2 border-white shadow-sm ${
-                  item.difficulty === 'easy' ? 'bg-brand-primary/10 text-brand-primary' : 
-                  item.difficulty === 'medium' ? 'bg-brand-warning/10 text-brand-warning' : 
-                  'bg-brand-danger/10 text-brand-danger'
-                }`}>
-                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-                  </svg>
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-text-primary group-hover:text-brand-primary transition-colors underline-offset-4 decoration-2">{item.title}</h2>
-                  <p className="text-text-secondary mt-1 text-sm line-clamp-2 max-w-xl">{item.description}</p>
-                  <div className="mt-4 flex items-center gap-4 text-xs font-bold uppercase tracking-widest text-text-tertiary">
-                    <span className="flex items-center gap-1">
-                      <span className={`h-2 w-2 rounded-full ${
-                        item.difficulty === 'easy' ? 'bg-brand-primary' : 
-                        item.difficulty === 'medium' ? 'bg-brand-warning' : 
-                        'bg-brand-danger'
-                      }`} />
-                      {item.difficulty}
-                    </span>
-                    <span>{item.points} Points</span>
+      {/* Category Navigation */}
+      <div className="flex overflow-x-auto pb-4 gap-3 no-scrollbar mb-8">
+        {categories.map((cat) => (
+          <button
+            key={cat.id}
+            onClick={() => {
+              setActiveCategory(cat.id);
+              setActiveSubcategory('all');
+            }}
+            className={`flex items-center gap-2 px-5 py-3 rounded-xl font-bold transition-all whitespace-nowrap border-2 ${
+              activeCategory === cat.id
+                ? 'bg-brand-primary border-brand-primary text-white shadow-glow-primary'
+                : 'bg-white border-dark-border text-text-secondary hover:border-brand-primary/50'
+            }`}
+          >
+            <span>{cat.icon}</span>
+            {cat.name}
+          </button>
+        ))}
+      </div>
+
+      <div className="grid lg:grid-cols-4 gap-8">
+        {/* Subcategories / Filters */}
+        <aside className="lg:col-span-1">
+          <div className="glass-panel p-6 sticky top-24">
+            <h3 className="font-bold text-text-primary mb-4 flex items-center gap-2">
+              <svg className="w-5 h-5 text-brand-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+              </svg>
+              Filter by Topic
+            </h3>
+            
+            <div className="flex flex-wrap lg:flex-col gap-2">
+              <button
+                onClick={() => setActiveSubcategory('all')}
+                className={`text-left px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                  activeSubcategory === 'all'
+                    ? 'bg-brand-primary/10 text-brand-primary border-l-4 border-brand-primary'
+                    : 'text-text-tertiary hover:bg-dark-surface hover:text-text-secondary'
+                }`}
+              >
+                All Topics
+              </button>
+              
+              {currentCategoryData?.subcategories?.map(sub => (
+                <button
+                  key={sub}
+                  onClick={() => setActiveSubcategory(sub)}
+                  className={`text-left px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                    activeSubcategory === sub
+                      ? 'bg-brand-primary/10 text-brand-primary border-l-4 border-brand-primary'
+                      : 'text-text-tertiary hover:bg-dark-surface hover:text-text-secondary'
+                  }`}
+                >
+                  {sub}
+                </button>
+              ))}
+            </div>
+
+            {!currentCategoryData?.subcategories && (
+              <p className="text-xs text-text-tertiary italic mt-4">Select a category to see specific topics.</p>
+            )}
+          </div>
+        </aside>
+
+        {/* Challenges List */}
+        <div className="lg:col-span-3">
+          {filteredPractices.length > 0 ? (
+            <div className="grid gap-4">
+              {filteredPractices.map((item) => (
+                <div key={item.id} className="glass-panel p-6 hover:border-brand-primary/50 transition-all group relative overflow-hidden">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+                    <div className="flex items-start gap-4">
+                      <div className={`mt-1 h-12 w-12 rounded-lg flex items-center justify-center shrink-0 border-2 border-white shadow-sm ${
+                        item.difficulty === 'easy' ? 'bg-brand-primary/10 text-brand-primary' : 
+                        item.difficulty === 'medium' ? 'bg-brand-warning/10 text-brand-warning' : 
+                        'bg-brand-danger/10 text-brand-danger'
+                      }`}>
+                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                        </svg>
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded bg-dark-surface text-text-tertiary">
+                            {item.category || 'General'}
+                          </span>
+                          <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded bg-brand-primary/5 text-brand-primary">
+                            {item.subcategory || 'Basics'}
+                          </span>
+                        </div>
+                        <h2 className="text-xl font-bold text-text-primary group-hover:text-brand-primary transition-colors underline-offset-4 decoration-2">{item.title}</h2>
+                        <p className="text-text-secondary mt-1 text-sm line-clamp-2 max-w-xl">{item.description}</p>
+                        <div className="mt-4 flex items-center gap-4 text-xs font-bold uppercase tracking-widest text-text-tertiary">
+                          <span className="flex items-center gap-1">
+                            <span className={`h-2 w-2 rounded-full ${
+                              item.difficulty === 'easy' ? 'bg-brand-primary' : 
+                              item.difficulty === 'medium' ? 'bg-brand-warning' : 
+                              'bg-brand-danger'
+                            }`} />
+                            {item.difficulty}
+                          </span>
+                          <span>{item.points} Points</span>
+                        </div>
+                      </div>
+                    </div>
+                    <Link to={`/practice/${item.id}`} className="btn-primary whitespace-nowrap shadow-glow-primary">Solve Challenge</Link>
                   </div>
                 </div>
-              </div>
-              <Link to={`/practice/${item.id}`} className="btn-primary whitespace-nowrap">Solve Challenge</Link>
+              ))}
             </div>
-          </div>
-        ))}
+          ) : (
+            <div className="glass-panel p-12 text-center">
+              <div className="w-16 h-16 bg-dark-surface rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold text-text-primary mb-2">No challenges found</h3>
+              <p className="text-text-secondary">We're still adding challenges for this category. Check back soon!</p>
+              <button 
+                onClick={() => { setActiveCategory('all'); setActiveSubcategory('all'); }}
+                className="mt-6 text-brand-primary font-bold hover:underline"
+              >
+                Clear all filters
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -1,6 +1,8 @@
 [
   {
     "title": "Two Sum",
+    "category": "DSA",
+    "subcategory": "Arrays",
     "description": "Given an array of integers, return indices of the two numbers such that they add up to a specific target.",
     "difficulty": "easy",
     "starter_code": "function twoSum(nums, target) {\n  // Write your code here\n}",
@@ -13,6 +15,8 @@
   },
   {
     "title": "Valid Palindrome",
+    "category": "DSA",
+    "subcategory": "Strings",
     "description": "A phrase is a palindrome if, after converting all uppercase letters into lowercase letters and removing all non-alphanumeric characters, it reads the same forward and backward.",
     "difficulty": "easy",
     "starter_code": "function isPalindrome(s) {\n  // Write your code here\n}",
@@ -25,6 +29,8 @@
   },
   {
     "title": "Maximum Subarray",
+    "category": "DSA",
+    "subcategory": "Arrays",
     "description": "Given an integer array nums, find the contiguous subarray (containing at least one number) which has the largest sum and return its sum.",
     "difficulty": "medium",
     "starter_code": "function maxSubArray(nums) {\n  // Write your code here\n}",

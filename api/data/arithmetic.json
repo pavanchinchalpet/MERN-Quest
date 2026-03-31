@@ -1,0 +1,15 @@
+[
+  {
+    "title": "Profit and Loss",
+    "category": "Arithmetic",
+    "subcategory": "Numbers",
+    "description": "If a person sells an article for Rs. 650 and gains 30%, what is the cost price of the article?",
+    "difficulty": "easy",
+    "starter_code": "// Write the answer as a number",
+    "solution_code": "500",
+    "test_cases": [
+      { "input": "[]", "output": "500" }
+    ],
+    "points": 10
+  }
+]

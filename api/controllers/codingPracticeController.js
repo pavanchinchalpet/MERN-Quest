@@ -7,7 +7,7 @@ const getPractices = async (req, res, next) => {
   try {
     const { data: practices, error } = await supabase
       .from('coding_practices')
-      .select('id, title, description, difficulty, points, created_at')
+      .select('id, title, description, difficulty, points, category, subcategory, created_at')
       .order('created_at', { ascending: false });
 
     if (error) throw new Error(error.message);

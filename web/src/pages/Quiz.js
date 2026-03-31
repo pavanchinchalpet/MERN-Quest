@@ -7,7 +7,7 @@ const Quiz = () => {
   const location = useLocation();
   const [questions, setQuestions] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [selectedCategory, setSelectedCategory] = useState('none');
   const [selectedQuestions, setSelectedQuestions] = useState([]);
   const [answers, setAnswers] = useState({});
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -64,7 +64,7 @@ const Quiz = () => {
     if (quizId && questions.length > 0 && phase === 'catalog') {
       const question = questions.find(q => q.id === quizId);
       if (question) {
-        startQuiz(question.category_id || 'all');
+        setSelectedCategory(question.category_id || 'all');
       }
     }
   }, [questions, phase, startQuiz, location.search]);
@@ -85,6 +85,11 @@ const Quiz = () => {
 
     setSubmitting(true);
     try {
+      // Exit fullscreen if in it
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
+      }
+
       const payload = selectedQuestions.map((question) => ({
         questionId: question.id,
         selectedAnswer: answers[question.id] || ''
@@ -101,6 +106,53 @@ const Quiz = () => {
       setSubmitting(false);
     }
   }, [answers, selectedQuestions, submitting]);
+
+  // Security Logic: Auto-submit on tab switch or fullscreen exit
+  useEffect(() => {
+    if (phase !== 'active') return;
+
+    const handleSecurityViolation = () => {
+      console.warn('Security violation detected! Auto-submitting assessment.');
+      handleSubmit();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        handleSecurityViolation();
+      }
+    };
+
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement && phase === 'active') {
+        handleSecurityViolation();
+      }
+    };
+
+    const handleBlur = () => {
+      handleSecurityViolation();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    window.addEventListener('blur', handleBlur);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      window.removeEventListener('blur', handleBlur);
+    };
+  }, [phase, handleSubmit]);
+
+  const startExamWithSecurity = useCallback(async (categoryId) => {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+      }
+      startQuiz(categoryId);
+    } catch (err) {
+      setError('Fullscreen is required to take the assessment. Please enable it.');
+    }
+  }, [startQuiz]);
 
   useEffect(() => {
     if (phase !== 'active' || timeLeft <= 0) {
@@ -155,6 +207,44 @@ const Quiz = () => {
   if (phase === 'catalog') {
     return (
       <div className="mx-auto max-w-7xl px-4 pb-16 animate-fade-in text-text-primary">
+        {/* Pre-Exam Modal */}
+        {selectedCategory !== 'none' && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl max-w-md w-full p-10 text-center shadow-2xl animate-scale-in">
+              <div className="w-20 h-20 bg-brand-primary/10 rounded-full flex items-center justify-center text-brand-primary mx-auto mb-8">
+                <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <h2 className="text-3xl font-black text-text-primary mb-4">Exam Mode</h2>
+              <p className="text-text-secondary mb-8 leading-relaxed">
+                This assessment is conducted in a secure environment. <br/>
+                <span className="font-bold text-brand-primary">Rules:</span>
+                <ul className="text-sm mt-4 space-y-2 text-left bg-dark-surface p-4 rounded-xl">
+                  <li>• System will switch to <strong>Fullscreen</strong> automatically.</li>
+                  <li>• <strong>DO NOT</strong> switch tabs or minimize.</li>
+                  <li>• <strong>DO NOT</strong> click outside the window.</li>
+                  <li className="text-brand-danger font-black uppercase text-[10px]">• Violations will trigger immediate auto-submission.</li>
+                </ul>
+              </p>
+              <div className="flex gap-4">
+                <button 
+                  onClick={() => setSelectedCategory('none')} 
+                  className="btn-secondary flex-1 py-4 font-bold border-2"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={() => startExamWithSecurity(selectedCategory)} 
+                  className="btn-primary flex-1 py-4 font-bold bg-brand-primary border-0"
+                >
+                  I Understand
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <section className="glass-panel overflow-hidden relative mb-8">
           <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-dark-surface to-transparent z-0"></div>
           <div className="relative z-10 p-8 lg:p-12">
@@ -163,11 +253,12 @@ const Quiz = () => {
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-primary opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-brand-primary"></span>
               </span>
-              Skill Assessment
+              Exam Center
             </div>
-            <h1 className="heading-1 max-w-2xl">Sharpen your code.</h1>
-            <p className="text-muted text-lg mt-4 max-w-3xl">
-              Choose a dedicated module or take a comprehensive exam to test your logic and algorithmic knowledge.
+            <h1 className="heading-1 max-w-2xl">Validate your skills.</h1>
+            <p className="text-muted text-lg mt-4 max-w-3xl leading-relaxed">
+              Take a professional assessment to test your logic and algorithmic knowledge. 
+              Earn points and boost your rank in the global leaderboard.
             </p>
             {error && (
               <div className="mt-6 rounded-lg border border-brand-danger/30 bg-brand-danger/10 p-4 w-fit">
@@ -177,35 +268,35 @@ const Quiz = () => {
           </div>
         </section>
 
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="heading-3 mb-0">Coding Modules</h2>
-          <div className="text-sm text-text-secondary font-bold hidden sm:block">
-            {visibleCategories.length + 1} roadmaps available
-          </div>
+        <div className="flex items-center justify-between mb-8 px-2">
+          <h2 className="text-2xl font-black text-text-primary mb-0 flex items-center gap-3">
+             <span className="w-2 h-8 bg-brand-primary rounded-full"></span>
+             Available Roadmaps
+          </h2>
         </div>
 
-        <section className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <section className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
           <button 
             type="button" 
-            onClick={() => startQuiz('all')} 
-            className="text-left glass-card p-6 border-2 border-transparent hover:border-brand-primary group flex flex-col justify-between shadow-sm bg-white"
+            onClick={() => setSelectedCategory('all')} 
+            className="text-left glass-card p-10 border-2 border-transparent hover:border-brand-primary group flex flex-col justify-between shadow-sm bg-white hover:shadow-xl transition-all duration-300"
           >
             <div>
-              <div className="flex items-center justify-between mb-4">
-                <div className="w-12 h-12 rounded bg-brand-primary flex items-center justify-center text-white">
-                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="flex items-center justify-between mb-8">
+                <div className="w-16 h-16 rounded-2xl bg-brand-primary flex items-center justify-center text-white shadow-lg shadow-brand-primary/20">
+                  <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
                   </svg>
                 </div>
-                <div className="badge badge-primary">Comprehensive</div>
+                <div className="px-3 py-1 bg-brand-primary/10 text-brand-primary rounded-full text-[10px] font-black uppercase tracking-widest">Comprehensive</div>
               </div>
-              <h3 className="text-xl font-bold text-text-primary group-hover:text-brand-primary transition-colors">Full Stack Challenge</h3>
-              <p className="mt-2 text-sm text-text-secondary">A blend of questions covering algorithms, data structures, and web tech.</p>
+              <h3 className="text-2xl font-black text-text-primary group-hover:text-brand-primary transition-colors">Full Stack Exam</h3>
+              <p className="mt-4 text-sm text-text-secondary leading-relaxed font-medium">A blend of questions covering algorithms, data structures, and the complete MERN ecosystem.</p>
             </div>
-            <div className="mt-6 flex items-center justify-between border-t border-dark-border pt-4">
-              <span className="text-sm font-bold text-text-primary">{Math.min(questions.length, 10)} Challenges</span>
-              <span className="text-brand-primary text-sm font-bold flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity transform translate-x-[-10px] group-hover:translate-x-0">
-                Start <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+            <div className="mt-10 flex items-center justify-between border-t border-dark-border pt-6">
+              <span className="text-xs font-black text-text-tertiary uppercase tracking-widest leading-none">{Math.min(questions.length, 10)} Challenges</span>
+              <span className="text-brand-primary text-xs font-black flex items-center gap-1 opacity-100 transition-all uppercase tracking-widest">
+                Start Exam <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
               </span>
             </div>
           </button>
@@ -214,27 +305,27 @@ const Quiz = () => {
             <button
               key={category.id}
               type="button"
-              onClick={() => startQuiz(category.id)}
-              className="text-left glass-card p-6 border-2 border-transparent hover:border-brand-primary group flex flex-col justify-between shadow-sm bg-white"
+              onClick={() => setSelectedCategory(category.id)}
+              className="text-left glass-card p-10 border-2 border-transparent hover:border-brand-primary group flex flex-col justify-between shadow-sm bg-white hover:shadow-xl transition-all duration-300"
             >
               <div>
-                <div className="flex items-center justify-between mb-4">
-                  <div className="w-12 h-12 rounded border border-dark-border bg-dark-surface flex items-center justify-center text-text-primary group-hover:bg-brand-primary/10 group-hover:text-brand-primary transition-colors">
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div className="flex items-center justify-between mb-8">
+                  <div className="w-16 h-16 rounded-2xl border border-dark-border bg-dark-surface flex items-center justify-center text-text-primary group-hover:bg-brand-primary/10 group-hover:text-brand-primary group-hover:border-brand-primary/30 transition-all duration-300">
+                    <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
                     </svg>
                   </div>
-                  <div className="badge badge-neutral">{category.name || category.title || 'Module'}</div>
+                  <div className="px-3 py-1 bg-dark-surface text-text-secondary rounded-full text-[10px] font-black uppercase tracking-widest group-hover:bg-brand-primary group-hover:text-white transition-all">{category.name || category.title || 'Module'}</div>
                 </div>
-                <h3 className="text-xl font-bold text-text-primary group-hover:text-brand-primary transition-colors">{category.title || category.name}</h3>
-                <p className="mt-2 text-sm text-text-secondary line-clamp-2">
-                  {category.description || `Master core ${category.title} concepts through targeted exercises.`}
+                <h3 className="text-2xl font-black text-text-primary group-hover:text-brand-primary transition-colors">{category.title || category.name}</h3>
+                <p className="mt-4 text-sm text-text-secondary font-medium line-clamp-2 leading-relaxed">
+                  {category.description || `Validate your expert knowledge in ${category.title} through this technical assessment.`}
                 </p>
               </div>
-              <div className="mt-6 flex items-center justify-between border-t border-dark-border pt-4">
-                <span className="text-sm font-bold text-text-primary">{category.questionCount} Challenges</span>
-                <span className="text-brand-primary text-sm font-bold flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity transform translate-x-[-10px] group-hover:translate-x-0">
-                  Start <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+              <div className="mt-10 flex items-center justify-between border-t border-dark-border pt-6">
+                <span className="text-xs font-black text-text-tertiary uppercase tracking-widest leading-none">{category.questionCount} Questions</span>
+                <span className="text-brand-primary text-xs font-black flex items-center gap-1 opacity-100 transition-all uppercase tracking-widest">
+                  Start Exam <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
                 </span>
               </div>
             </button>

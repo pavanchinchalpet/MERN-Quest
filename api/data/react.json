@@ -1,0 +1,28 @@
+[
+  {
+    "title": "Custom Counter Hook",
+    "category": "React",
+    "subcategory": "Hooks",
+    "description": "Create a custom hook useCounter that takes an initial value and returns count, increment, and decrement functions.",
+    "difficulty": "easy",
+    "starter_code": "function useCounter(initialValue) {\n  // Write your hook here\n}",
+    "solution_code": "function useCounter(initialValue) {\n  const [count, setCount] = useState(initialValue);\n  const increment = () => setCount(prev => prev + 1);\n  const decrement = () => setCount(prev => prev - 1);\n  return { count, increment, decrement };\n}",
+    "test_cases": [
+      { "input": "[0]", "output": "{count: 1}" }
+    ],
+    "points": 20
+  },
+  {
+    "title": "React Component Profiling",
+    "category": "React",
+    "subcategory": "Performance",
+    "description": "Identify and fix unnecessary re-renders in a provided component using useMemo or React.memo.",
+    "difficulty": "medium",
+    "starter_code": "const MyComponent = ({ data }) => {\n  // Optimize this\n  return <div>{data.name}</div>;\n}",
+    "solution_code": "const MyComponent = React.memo(({ data }) => {\n  return <div>{data.name}</div>;\n});",
+    "test_cases": [
+      { "input": "[]", "output": "Optimized" }
+    ],
+    "points": 35
+  }
+]

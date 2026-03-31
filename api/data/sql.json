@@ -1,0 +1,15 @@
+[
+  {
+    "title": "Combine Two Tables",
+    "category": "SQL",
+    "subcategory": "Joins",
+    "description": "Write an SQL query to report the first name, last name, city, and state of each person in the Person table. If the address of a personId is not present in the Address table, report null instead.",
+    "difficulty": "easy",
+    "starter_code": "SELECT firstName, lastName, city, state FROM Person ...",
+    "solution_code": "SELECT p.firstName, p.lastName, a.city, a.state FROM Person p LEFT JOIN Address a ON p.personId = a.personId;",
+    "test_cases": [
+      { "input": "Tables: Person, Address", "output": "Joined results" }
+    ],
+    "points": 15
+  }
+]
