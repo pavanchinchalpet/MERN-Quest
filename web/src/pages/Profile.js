@@ -71,7 +71,7 @@ const Profile = () => {
   return (
     <div className="mx-auto max-w-6xl px-4 pb-16 animate-fade-in text-text-primary">
       {/* Header Banner */}
-      <div className="w-full h-48 rounded-t-lg bg-gradient-to-r from-brand-primary to-green-400 relative overflow-hidden shrink-0 mt-6 md:mt-10 shadow-sm border border-dark-border border-b-0">
+      <div className="w-full h-32 md:h-48 rounded-t-lg bg-gradient-to-r from-brand-primary to-green-400 relative overflow-hidden shrink-0 mt-4 md:mt-10 shadow-sm border border-dark-border border-b-0">
         <div className="absolute inset-0 bg-white/10 backdrop-blur-[2px]"></div>
         <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 rounded-full bg-white/20 blur-3xl"></div>
       </div>
@@ -83,8 +83,8 @@ const Profile = () => {
             <span className="relative z-10">{getAvatarLetter()}</span>
           </div>
 
-          <h1 className="text-3xl font-black text-text-primary text-center md:text-left">{user?.username || 'Learner'}</h1>
-          <p className="text-text-secondary mt-1 text-center md:text-left bg-dark-surface px-3 py-1 rounded text-sm font-bold border border-dark-border inline-block md:block mb-8">{user?.email}</p>
+          <h1 className="text-2xl md:text-3xl font-black text-text-primary text-center md:text-left">{user?.username || 'Learner'}</h1>
+          <p className="text-text-secondary mt-1 text-center md:text-left bg-dark-surface px-3 py-1 rounded text-xs md:text-sm font-bold border border-dark-border inline-block md:block mb-6 md:mb-8">{user?.email}</p>
 
           <div className="w-full space-y-3">
             <div className="glass-card p-4 flex items-center justify-between group hover:border-brand-primary transition-colors bg-white shadow-sm">
@@ -214,7 +214,7 @@ const Profile = () => {
             )}
           </div>
 
-          <div className="grid lg:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
             {/* Learning Summary */}
             <div className="glass-card p-6 flex flex-col justify-center bg-white shadow-sm border border-dark-border">
               <h3 className="heading-3 mb-4">Module Activity</h3>

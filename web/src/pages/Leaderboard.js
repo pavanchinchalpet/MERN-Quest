@@ -85,7 +85,7 @@ const Leaderboard = () => {
 
       {/* Podium Section (Top 3) */}
       {!search && filteredEntries.length >= 3 && (
-        <div className="grid md:grid-cols-3 gap-6 mb-12 px-4 md:px-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12 px-4 md:px-0">
           {[1, 0, 2].map((podiumIndex) => {
             const entry = filteredEntries[podiumIndex];
             if (!entry) return null;
@@ -96,20 +96,20 @@ const Leaderboard = () => {
             return (
               <div 
                 key={entry.id} 
-                className={`glass-card relative flex flex-col items-center p-6 text-center transform transition-transform hover:-translate-y-1 bg-white
-                  ${isFirst ? 'md:-mt-6 border-brand-primary shadow-glow-primary scale-105 z-10' : 'mt-4 border-dark-border shadow-sm'}
+                className={`glass-card relative flex flex-col items-center p-6 text-center transform transition-all hover:-translate-y-1 bg-white
+                  ${isFirst ? 'md:-mt-6 border-brand-primary shadow-glow-primary md:scale-110 z-10 order-first md:order-none' : 'border-dark-border shadow-sm'}
                 `}
               >
                 <div className={`absolute -top-5 flex items-center justify-center w-10 h-10 rounded-full font-black text-lg border-2 bg-white shadow-sm
-                  ${rank === 1 ? 'border-brand-primary text-brand-primary' : rank === 2 ? 'border-text-tertiary text-text-tertiary' : 'border-amber-600 text-amber-600'}
+                  ${rank === 1 ? 'border-brand-primary text-brand-primary' : rank === 2 ? 'border-slate-400 text-slate-500' : 'border-amber-600 text-amber-600'}
                 `}>
                   {rank}
                 </div>
                 
-                <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-4 mt-6 border-2
+                <div className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center mb-4 mt-6 border-2
                   ${rank === 1 ? 'bg-brand-primary/10 text-brand-primary border-brand-primary/20' : 'bg-dark-surface text-text-secondary border-dark-border'}
                 `}>
-                  <span className="text-3xl font-black">{entry.username.charAt(0).toUpperCase()}</span>
+                  <span className="text-2xl sm:text-3xl font-black">{entry.username.charAt(0).toUpperCase()}</span>
                 </div>
                 
                 <h3 className="text-xl font-bold text-text-primary mb-1">{entry.username}</h3>
@@ -117,11 +117,11 @@ const Leaderboard = () => {
                 
                 <div className="w-full grid grid-cols-2 gap-2 border-t border-dark-border pt-4 mt-2">
                   <div>
-                    <div className="text-xs text-text-tertiary font-bold uppercase tracking-wider mb-1">XP</div>
+                    <div className="text-[10px] text-text-tertiary font-bold uppercase tracking-wider mb-1">XP</div>
                     <div className="text-lg font-black text-brand-primary">{entry.points || 0}</div>
                   </div>
                   <div>
-                    <div className="text-xs text-text-tertiary font-bold uppercase tracking-wider mb-1">Streak</div>
+                    <div className="text-[10px] text-text-tertiary font-bold uppercase tracking-wider mb-1">Streak</div>
                     <div className="text-lg font-black text-brand-warning flex items-center justify-center gap-1">
                       {entry.streak || 0}
                       <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z" clipRule="evenodd" /></svg>

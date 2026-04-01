@@ -77,10 +77,10 @@ const Home = () => {
         
         <div className="relative z-10 p-8 sm:p-10 flex flex-col md:flex-row md:items-center justify-between gap-8">
           <div className="max-w-xl">
-            <h1 className="heading-1 mb-2">
+            <h1 className="text-3xl md:text-5xl font-black mb-2">
               Welcome back, <span className="text-brand-primary">{user?.username || 'Developer'}</span>!
             </h1>
-            <p className="text-muted text-lg mt-2">
+            <p className="text-muted text-base md:text-lg mt-2">
               Continue honing your skills. Complete coding challenges to master new frameworks and climb the global rankings.
             </p>
             <div className="mt-8 flex flex-wrap gap-4">
@@ -95,16 +95,16 @@ const Home = () => {
           </div>
           
           {/* Quick Stats Grid */}
-          <div className="grid grid-cols-2 gap-4 md:min-w-[320px]">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 md:min-w-[320px]">
             {quickStats.map((item) => (
-              <div key={item.label} className="glass-card p-5 flex flex-col items-center justify-center text-center">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${item.bg} mb-3`}>
-                  <svg className={`w-5 h-5 ${item.color}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div key={item.label} className="glass-card p-4 sm:p-5 flex flex-col items-center justify-center text-center">
+                <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center ${item.bg} mb-2 sm:mb-3`}>
+                  <svg className={`w-4 h-4 sm:w-5 sm:h-5 ${item.color}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={item.icon} />
                   </svg>
                 </div>
-                <div className="text-2xl font-black text-text-primary">{item.value}</div>
-                <div className="text-[11px] font-bold text-text-tertiary uppercase tracking-wider mt-1">{item.label}</div>
+                <div className="text-xl sm:text-2xl font-black text-text-primary">{item.value}</div>
+                <div className="text-[10px] sm:text-[11px] font-bold text-text-tertiary uppercase tracking-wider mt-1">{item.label}</div>
               </div>
             ))}
           </div>

@@ -483,30 +483,36 @@ const Quiz = () => {
       )}
       
       {/* 1. Header */}
-      <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 shrink-0 z-20">
-        <div className="flex items-center gap-6 w-1/3">
-          <div className="flex items-center gap-4 min-w-[120px]">
-             <span className="font-bold text-gray-900 text-lg">Q {currentIndex + 1}/{selectedQuestions.length}</span>
-             <div className="flex-grow h-2 w-32 bg-gray-100 rounded-full overflow-hidden">
+      <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 sm:px-6 shrink-0 z-20">
+        <div className="flex items-center gap-2 sm:gap-6 w-auto sm:w-1/3">
+          <div className="flex items-center gap-2 sm:gap-4">
+             <span className="font-bold text-gray-900 text-sm sm:text-lg whitespace-nowrap">Q {currentIndex + 1}/{selectedQuestions.length}</span>
+             <div className="hidden sm:block h-2 w-32 bg-gray-100 rounded-full overflow-hidden">
                 <div 
-                  className="h-full bg-green-600 transition-all duration-300" 
-                  style={{ width: `${((currentIndex + 1) / selectedQuestions.length) * 100}%` }}
+                   className="h-full bg-green-600 transition-all duration-300" 
+                   style={{ width: `${((currentIndex + 1) / selectedQuestions.length) * 100}%` }}
                 />
              </div>
           </div>
         </div>
 
-        <div className="flex justify-center w-1/3">
-           {/* Removed close button per user request */}
+        <div className="flex-grow flex justify-center px-4">
+           {/* Progress bar for mobile */}
+           <div className="sm:hidden h-1.5 w-full max-w-[100px] bg-gray-100 rounded-full overflow-hidden">
+                <div 
+                   className="h-full bg-green-600 transition-all duration-300" 
+                   style={{ width: `${((currentIndex + 1) / selectedQuestions.length) * 100}%` }}
+                />
+           </div>
         </div>
 
-        <div className="flex items-center justify-end gap-6 w-1/3 text-sm font-semibold">
-           <span className="text-gray-900">{completionPercentage}%</span>
-           <div className="flex items-center gap-2 text-gray-700">
-             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div className="flex items-center justify-end gap-3 sm:gap-6 w-auto sm:w-1/3 text-[10px] sm:text-sm font-semibold text-gray-700">
+           <span className="hidden xs:block">{completionPercentage}%</span>
+           <div className="flex items-center gap-1.5 sm:gap-2">
+             <svg className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
              </svg>
-             <span>{formatTime(timeLeft)} remaining</span>
+             <span className="whitespace-nowrap">{formatTime(timeLeft)}</span>
            </div>
         </div>
       </header>
@@ -630,59 +636,55 @@ const Quiz = () => {
       </div>
 
       {/* 3. Footer Actions */}
-      <footer className="h-20 bg-white border-t border-gray-200 flex items-center justify-between px-8 shrink-0 z-20">
-        <div className="flex items-center gap-8">
+      <footer className="h-20 bg-white border-t border-gray-200 flex items-center justify-between px-4 sm:px-8 shrink-0 z-20">
+        <div className="flex items-center gap-4 sm:gap-8">
            <button 
              onClick={() => setCurrentIndex(p => Math.max(0, p - 1))}
              disabled={currentIndex === 0}
-             className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-gray-500 hover:text-gray-900 disabled:opacity-30 transition-colors"
+             className="flex items-center gap-1.5 text-[10px] sm:text-xs font-bold uppercase tracking-widest text-gray-500 hover:text-gray-900 disabled:opacity-30 transition-colors"
            >
-             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-             Prev
+             <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+             <span className="hidden xs:block">Prev</span>
            </button>
            <button 
              onClick={() => setFlaggedQuestions(prev => ({ ...prev, [currentQuestion.id]: !prev[currentQuestion.id] }))}
-             className={`flex items-center gap-2 text-xs font-bold uppercase tracking-widest transition-colors ${flaggedQuestions[currentQuestion?.id] ? 'text-red-500' : 'text-gray-500 hover:text-gray-900'}`}
+             className={`flex items-center gap-1.5 text-[10px] sm:text-xs font-bold uppercase tracking-widest transition-colors ${flaggedQuestions[currentQuestion?.id] ? 'text-red-500' : 'text-gray-500 hover:text-gray-900'}`}
            >
-             <svg className={`w-5 h-5 ${flaggedQuestions[currentQuestion?.id] ? 'fill-current' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" /></svg>
-             Flag
+             <svg className={`w-4 h-4 sm:w-5 sm:h-5 ${flaggedQuestions[currentQuestion?.id] ? 'fill-current' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" /></svg>
+             <span className="hidden xs:block">Flag</span>
            </button>
         </div>
 
-        <div className="flex items-center gap-8">
+        <div className="flex items-center gap-3 sm:gap-8">
            <button 
              onClick={() => setShowMobileNav(true)}
-             className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-gray-500 hover:text-gray-900 transition-colors lg:hidden"
+             className="flex items-center gap-1.5 text-[10px] sm:text-xs font-bold uppercase tracking-widest text-gray-500 hover:text-gray-900 transition-colors lg:hidden"
            >
-             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" /></svg>
-             Review
-           </button>
-           <button className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-gray-500 hover:text-gray-900 transition-colors hidden lg:flex">
-             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" /></svg>
-             Review
+             <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" /></svg>
+             <span className="hidden xs:block">Review</span>
            </button>
            <button 
              onClick={() => setCurrentIndex(p => Math.min(selectedQuestions.length - 1, p + 1))}
-             className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-gray-500 hover:text-gray-900 transition-colors"
+             className="flex items-center gap-1.5 text-[10px] sm:text-xs font-bold uppercase tracking-widest text-gray-500 hover:text-gray-900 transition-colors"
            >
-             Skip
-             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+             <span className="hidden xs:block">Skip</span>
+             <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
            </button>
            
            {currentIndex < selectedQuestions.length - 1 ? (
              <button 
-               onClick={() => setCurrentIndex(p => p + 1)}
-               className="px-8 py-3 bg-green-700 text-white font-bold rounded-lg uppercase tracking-widest hover:bg-green-800 transition-colors shadow-lg shadow-green-900/20"
+                onClick={() => setCurrentIndex(p => p + 1)}
+                className="px-4 sm:px-8 py-2.5 sm:py-3 bg-green-700 text-white text-[10px] sm:text-xs font-bold rounded-lg uppercase tracking-widest hover:bg-green-800 transition-all shadow-lg shadow-green-900/10"
              >
-               Next Question
+                Next <span className="hidden sm:inline">Question</span>
              </button>
            ) : (
              <button 
                 onClick={handleSubmit} 
                 disabled={submitting} 
-                className="px-8 py-3 bg-green-700 text-white font-bold rounded-lg uppercase tracking-widest hover:bg-green-800 transition-colors shadow-lg shadow-green-900/20 disabled:opacity-70"
+                className="px-4 sm:px-8 py-2.5 sm:py-3 bg-green-700 text-white text-[10px] sm:text-xs font-bold rounded-lg uppercase tracking-widest hover:bg-green-800 transition-all shadow-lg shadow-green-900/10 disabled:opacity-70"
              >
-               {submitting ? 'Submitting...' : 'Complete Exam'}
+                {submitting ? '...' : 'Complete'}
              </button>
            )}
         </div>

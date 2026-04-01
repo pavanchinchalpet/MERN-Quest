@@ -138,10 +138,10 @@ const Practice = () => {
           {filteredPractices.length > 0 ? (
             <div className="grid gap-4">
               {filteredPractices.map((item) => (
-                <div key={item.id} className="glass-panel p-6 hover:border-brand-primary/50 transition-all group relative overflow-hidden">
+                <div key={item.id} className="glass-panel p-5 sm:p-6 hover:border-brand-primary/50 transition-all group relative overflow-hidden bg-white shadow-sm hover:shadow-lg">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
-                    <div className="flex items-start gap-4">
-                      <div className={`mt-1 h-12 w-12 rounded-lg flex items-center justify-center shrink-0 border-2 border-white shadow-sm ${
+                    <div className="flex flex-col md:flex-row items-center md:items-start gap-4 text-center md:text-left">
+                      <div className={`h-12 w-12 rounded-xl flex items-center justify-center shrink-0 border-2 border-white shadow-sm ${
                         item.difficulty === 'easy' ? 'bg-brand-primary/10 text-brand-primary' : 
                         item.difficulty === 'medium' ? 'bg-brand-warning/10 text-brand-warning' : 
                         'bg-brand-danger/10 text-brand-danger'
@@ -150,19 +150,19 @@ const Practice = () => {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
                         </svg>
                       </div>
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded bg-dark-surface text-text-tertiary">
+                      <div className="flex flex-col items-center md:items-start">
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <span className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded bg-dark-surface text-text-tertiary border border-dark-border">
                             {item.category || 'General'}
                           </span>
-                          <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded bg-brand-primary/5 text-brand-primary">
+                          <span className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded bg-brand-primary/5 text-brand-primary border border-brand-primary/10">
                             {item.subcategory || 'Basics'}
                           </span>
                         </div>
-                        <h2 className="text-xl font-bold text-text-primary group-hover:text-brand-primary transition-colors underline-offset-4 decoration-2">{item.title}</h2>
-                        <p className="text-text-secondary mt-1 text-sm line-clamp-2 max-w-xl">{item.description}</p>
-                        <div className="mt-4 flex items-center gap-4 text-xs font-bold uppercase tracking-widest text-text-tertiary">
-                          <span className="flex items-center gap-1">
+                        <h2 className="text-xl font-black text-text-primary group-hover:text-brand-primary transition-colors">{item.title}</h2>
+                        <p className="text-text-secondary mt-1 text-sm line-clamp-2 max-w-xl font-medium">{item.description}</p>
+                        <div className="mt-4 flex items-center gap-4 text-[10px] font-black uppercase tracking-widest text-text-tertiary">
+                          <span className="flex items-center gap-1.5">
                             <span className={`h-2 w-2 rounded-full ${
                               item.difficulty === 'easy' ? 'bg-brand-primary' : 
                               item.difficulty === 'medium' ? 'bg-brand-warning' : 
@@ -174,7 +174,7 @@ const Practice = () => {
                         </div>
                       </div>
                     </div>
-                    <Link to={`/practice/${item.id}`} className="btn-primary whitespace-nowrap shadow-glow-primary">Solve Challenge</Link>
+                    <Link to={`/practice/${item.id}`} className="w-full md:w-auto btn-primary py-3 px-8 text-xs font-black uppercase tracking-widest text-center shadow-lg shadow-brand-primary/10 hover:shadow-none transition-all">Solve Challenge</Link>
                   </div>
                 </div>
               ))}
