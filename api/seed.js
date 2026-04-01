@@ -54,7 +54,7 @@ async function seed() {
 
     const { error: quizError } = await supabase
       .from('quizzes')
-      .insert(quizzesToInsert);
+      .upsert(quizzesToInsert, { onConflict: 'category_id,question_text' });
 
     if (quizError) throw quizError;
     console.log(`✅ ${quizzes.length} Quizzes seeded.`);
@@ -71,7 +71,7 @@ async function seed() {
 
     const { error: dsaError } = await supabase
       .from('coding_practices')
-      .insert(allPractices);
+      .upsert(allPractices, { onConflict: 'title,description' });
 
     if (dsaError) throw dsaError;
     console.log(`✅ ${allPractices.length} Practice Challenges seeded across all categories.`);

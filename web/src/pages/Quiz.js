@@ -17,6 +17,8 @@ const Quiz = () => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [flaggedQuestions, setFlaggedQuestions] = useState({});
+  const [showMobileNav, setShowMobileNav] = useState(false);
 
   useEffect(() => {
     const loadQuizCenter = async () => {
@@ -57,17 +59,23 @@ const Quiz = () => {
     setError('');
   }, [questions]);
 
-  // Handle deep-linking to a specific quiz via ?id=...
+  // Handle deep-linking to a specific quiz or category via ?id=... or ?categoryId=...
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const quizId = params.get('id');
-    if (quizId && questions.length > 0 && phase === 'catalog') {
-      const question = questions.find(q => q.id === quizId);
-      if (question) {
-        setSelectedCategory(question.category_id || 'all');
+    const categoryId = params.get('categoryId');
+
+    if (questions.length > 0 && phase === 'catalog') {
+      if (quizId) {
+        const question = questions.find(q => q.id === quizId);
+        if (question) {
+          setSelectedCategory(question.category_id || 'all');
+        }
+      } else if (categoryId) {
+        setSelectedCategory(categoryId);
       }
     }
-  }, [questions, phase, startQuiz, location.search]);
+  }, [questions, phase, location.search]);
 
   const handleReturnToDashboard = () => {
     setPhase('catalog');
@@ -444,125 +452,241 @@ const Quiz = () => {
 
   // --- ACTIVE QUIZ PHASE ---
   const currentQuestion = selectedQuestions[currentIndex];
+  const completionPercentage = Math.round((Object.keys(answers).length / selectedQuestions.length) * 100);
 
   return (
-    <div className="fixed inset-0 top-[64px] bg-white flex flex-col md:flex-row overflow-hidden animate-fade-in z-40">
+    <div className="fixed inset-0 bg-[#F8F9FA] flex flex-col z-50 overflow-hidden font-sans">
       
-      {/* Left Pane: Question Environment */}
-      <div className="w-full md:w-[45%] flex flex-col border-b md:border-b-0 md:border-r border-dark-border bg-dark-surface">
-        <div className="h-14 border-b border-dark-border flex items-center justify-between px-6 bg-white shrink-0 shadow-sm z-10">
-          <div className="flex items-center gap-3">
-            <span className="flex h-3 w-3 relative">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-danger opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-brand-danger"></span>
-            </span>
-            <span className="font-mono text-lg font-bold text-text-primary">{formatTime(timeLeft)}</span>
-          </div>
-          <button type="button" onClick={handleReturnToDashboard} className="text-sm font-bold text-text-tertiary hover:text-brand-danger transition-colors uppercase tracking-wider">Abort</button>
-        </div>
-        
-        <div className="flex-grow overflow-y-auto p-8 md:p-12">
-          <div className="text-xs font-bold text-text-tertiary uppercase tracking-wider mb-4 border-b border-dark-border pb-4">
-            Question {currentIndex + 1} / {selectedQuestions.length}
-          </div>
-          <h2 className="text-xl md:text-2xl font-bold leading-tight text-text-primary mb-6">
-            {currentQuestion?.question_text}
-          </h2>
-          
-
-          <div className="mt-8 pt-8 border-t border-dark-border/50 text-sm text-text-secondary leading-relaxed font-medium hidden sm:block">
-            Choose the best alternative that answers the logic puzzle. Time complexity and space complexity should be evaluated if applicable to your chosen answer.
-          </div>
-        </div>
-        
-        <div className="p-4 border-t border-dark-border bg-white flex items-center justify-between shrink-0 shadow-[0_-2px_10px_rgba(0,0,0,0.02)]">
-          <button
-            type="button"
-            disabled={currentIndex === 0}
-            onClick={() => setCurrentIndex((current) => Math.max(current - 1, 0))}
-            className="px-4 py-2 text-sm font-bold text-text-secondary hover:text-brand-primary disabled:opacity-30 transition-colors uppercase tracking-wider"
-          >
-            &larr; Prev
-          </button>
-          
-          <div className="flex gap-1.5 overflow-x-auto">
-            {selectedQuestions.map((_, idx) => (
-              <div key={idx} className={`h-1.5 rounded-full transition-all shrink-0 ${idx === currentIndex ? 'w-6 bg-brand-primary' : answers[selectedQuestions[idx].id] ? 'w-2 bg-text-tertiary' : 'w-2 bg-dark-border'}`}></div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Right Pane: Interactive Workspace (Options) */}
-      <div className="w-full md:w-[55%] flex flex-col bg-white relative">
-        <div className="h-14 border-b border-dark-border flex items-center px-6 bg-white gap-3 shrink-0 shadow-sm z-10">
-          <svg className="w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-          </svg>
-          <span className="font-mono text-xs font-bold text-text-secondary uppercase tracking-wider">Solution Editor</span>
-        </div>
-        
-        <div className="flex-grow overflow-y-auto p-8 md:p-12 pb-32">
-          <div className="space-y-4 max-w-2xl mx-auto">
-            {(currentQuestion?.options || []).map((option, index) => {
-              const isSelected = answers[currentQuestion.id] === option;
-              const alphaLabel = String.fromCharCode(65 + index); // A, B, C, D
-              
-              return (
-                <button
-                  key={`${option}-${index}`}
-                  type="button"
-                  onClick={() => setAnswers((current) => ({ ...current, [currentQuestion.id]: option }))}
-                  className={`w-full group rounded border-2 p-5 text-left transition-all duration-200 flex items-start gap-4 ${
-                    isSelected
-                      ? 'border-brand-primary bg-brand-primary/5 shadow-sm'
-                      : 'border-dark-border bg-white hover:border-brand-primary hover:shadow-sm'
+      {/* 0. Mobile Sidebar Overlay */}
+      {showMobileNav && (
+        <div className="fixed inset-0 bg-black/50 z-[60] lg:hidden" onClick={() => setShowMobileNav(false)}>
+          <div className="absolute right-0 top-0 bottom-0 w-80 bg-white p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="font-bold text-gray-900 uppercase tracking-widest text-xs">Navigation</h3>
+              <button onClick={() => setShowMobileNav(false)} className="p-2 -mr-2"><svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
+            </div>
+            <div className="grid grid-cols-5 gap-2">
+              {selectedQuestions.map((q, idx) => (
+                <button 
+                  key={q.id}
+                  onClick={() => { setCurrentIndex(idx); setShowMobileNav(false); }}
+                  className={`h-10 rounded-lg flex items-center justify-center text-sm font-bold border-2 transition-all ${
+                    idx === currentIndex ? 'border-green-600 text-green-600 bg-green-50' : answers[q.id] ? 'border-gray-200 bg-gray-100 text-gray-600' : 'border-gray-100 text-gray-400'
                   }`}
                 >
-                  <div className={`shrink-0 w-8 h-8 rounded border-2 flex items-center justify-center font-bold text-sm transition-colors ${
-                    isSelected 
-                      ? 'bg-brand-primary border-brand-primary text-white' 
-                      : 'bg-white border-dark-border text-text-secondary group-hover:border-brand-primary group-hover:text-brand-primary'
-                  }`}>
-                    {alphaLabel}
-                  </div>
-                  <div className={`mt-1 font-mono text-sm leading-relaxed ${isSelected ? 'text-brand-primary font-bold' : 'text-text-primary font-medium group-hover:text-text-primary'}`}>
-                    {option}
-                  </div>
+                  {idx + 1}
                 </button>
-              );
-            })}
+              ))}
+            </div>
           </div>
         </div>
-        
-        {/* Actions Footer */}
-        <div className="absolute bottom-0 right-0 w-full p-4 border-t border-dark-border bg-white flex items-center justify-between shrink-0 shadow-[0_-4px_15px_rgba(0,0,0,0.03)]">
-          <div className="text-xs font-bold text-text-tertiary hidden sm:block uppercase tracking-wider pl-4">
-            {Object.keys(answers).length} / {selectedQuestions.length} Checked
+      )}
+      
+      {/* 1. Header */}
+      <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 shrink-0 z-20">
+        <div className="flex items-center gap-6 w-1/3">
+          <div className="flex items-center gap-4 min-w-[120px]">
+             <span className="font-bold text-gray-900 text-lg">Q {currentIndex + 1}/{selectedQuestions.length}</span>
+             <div className="flex-grow h-2 w-32 bg-gray-100 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-green-600 transition-all duration-300" 
+                  style={{ width: `${((currentIndex + 1) / selectedQuestions.length) * 100}%` }}
+                />
+             </div>
           </div>
-          
-          <div className="flex w-full sm:w-auto items-center gap-3">
-            {currentIndex < selectedQuestions.length - 1 ? (
-              <button
-                type="button"
-                onClick={() => setCurrentIndex((current) => Math.min(current + 1, selectedQuestions.length - 1))}
-                className="btn-primary w-full sm:w-auto shadow-none"
-              >
-                Next &rarr;
-              </button>
-            ) : (
+        </div>
+
+        <div className="flex justify-center w-1/3">
+           {/* Removed close button per user request */}
+        </div>
+
+        <div className="flex items-center justify-end gap-6 w-1/3 text-sm font-semibold">
+           <span className="text-gray-900">{completionPercentage}%</span>
+           <div className="flex items-center gap-2 text-gray-700">
+             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+             </svg>
+             <span>{formatTime(timeLeft)} remaining</span>
+           </div>
+        </div>
+      </header>
+
+      {/* 2. Main Layout Area */}
+      <div className="flex-grow flex overflow-hidden">
+        
+        {/* Left: Content Area */}
+        <main className="flex-grow overflow-y-auto bg-white p-8 md:p-12 lg:p-16">
+          <div className="max-w-4xl mx-auto">
+            <div className="text-xs font-bold text-green-600 uppercase tracking-widest mb-4">
+              Full Stack Developer (MERN) · Role Assessment
+            </div>
+            
+            <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-6 leading-tight whitespace-pre-line">
+              {currentQuestion?.question_text?.split('```')[0]}
+            </h2>
+
+            {currentQuestion?.question_text?.includes('```') && (
+              <div className="mb-8 p-6 bg-gray-900 text-green-400 rounded-xl font-mono text-sm border border-gray-800 shadow-inner overflow-x-auto">
+                <pre>{currentQuestion.question_text.split('```')[1]}</pre>
+              </div>
+            )}
+
+            <div className="space-y-4 mb-12">
+              {(currentQuestion?.options || []).map((option, index) => {
+                const isSelected = answers[currentQuestion.id] === option;
+                const alphaLabel = String.fromCharCode(65 + index);
+                
+                return (
+                  <button
+                    key={`${option}-${index}`}
+                    onClick={() => setAnswers(prev => ({ ...prev, [currentQuestion.id]: option }))}
+                    className={`w-full text-left p-5 rounded-xl border-2 transition-all flex items-center gap-5 group ${
+                      isSelected 
+                        ? 'border-green-600 bg-green-50/30' 
+                        : 'border-gray-100 hover:border-green-600 hover:bg-gray-50/50'
+                    }`}
+                  >
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 border-2 font-bold text-sm transition-colors ${
+                      isSelected 
+                        ? 'bg-green-600 border-green-600 text-white' 
+                        : 'border-gray-200 text-gray-500 group-hover:border-green-600 group-hover:text-green-600'
+                    }`}>
+                      {alphaLabel}
+                    </div>
+                    <span className="text-base font-medium text-gray-700">
+                      {option}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <button 
+              onClick={() => setAnswers(prev => {
+                const newAns = { ...prev };
+                delete newAns[currentQuestion.id];
+                return newAns;
+              })}
+              className="w-full py-4 bg-[#2D3134] text-white font-bold rounded-lg uppercase tracking-widest hover:bg-black transition-colors"
+            >
+              I Don't Know - Skip Question
+            </button>
+          </div>
+        </main>
+
+        {/* Right: Sidebar Navigation */}
+        <aside className="w-[320px] shrink-0 border-l border-gray-200 bg-white flex flex-col p-6 hidden lg:flex">
+          <div className="flex items-center justify-between mb-4 px-2">
+            <button className="text-gray-400 hover:text-gray-900 flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+              Questions
+            </button>
+            <span className="text-[10px] font-bold text-gray-900">1/1</span>
+            <button className="text-gray-400 hover:text-gray-900 flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider">
+              Questions
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-5 gap-2 mb-auto">
+            {selectedQuestions.map((q, idx) => (
               <button 
-                type="button" 
+                key={q.id}
+                onClick={() => setCurrentIndex(idx)}
+                className={`h-10 rounded-lg flex items-center justify-center text-sm font-bold border-2 transition-all ${
+                  idx === currentIndex 
+                    ? 'border-green-600 text-green-600 bg-green-50/50' 
+                    : answers[q.id] 
+                      ? 'border-gray-200 bg-gray-100 text-gray-600'
+                      : 'border-gray-100 text-gray-400 hover:border-gray-300'
+                } ${flaggedQuestions[q.id] ? 'relative' : ''}`}
+              >
+                {idx + 1}
+                {flaggedQuestions[q.id] && (
+                  <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full border border-white" />
+                )}
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-8 border-t border-gray-100 pt-6">
+             <div className="flex justify-between items-center mb-3">
+               <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Difficulty</span>
+               <span className="text-[10px] font-bold uppercase tracking-widest text-gray-900">LVL {currentQuestion?.difficulty === 'easy' ? 1 : currentQuestion?.difficulty === 'medium' ? 3 : 5}</span>
+             </div>
+             <div className="flex gap-1 h-1.5">
+               {[1, 2, 3, 4, 5].map((level) => {
+                 const currentLevel = currentQuestion?.difficulty === 'easy' ? 1 : currentQuestion?.difficulty === 'medium' ? 3 : 5;
+                 return (
+                   <div 
+                     key={level}
+                     className={`flex-grow rounded-full transition-colors ${level <= currentLevel ? 'bg-green-600' : 'bg-gray-100'}`}
+                   />
+                 );
+               })}
+             </div>
+          </div>
+        </aside>
+      </div>
+
+      {/* 3. Footer Actions */}
+      <footer className="h-20 bg-white border-t border-gray-200 flex items-center justify-between px-8 shrink-0 z-20">
+        <div className="flex items-center gap-8">
+           <button 
+             onClick={() => setCurrentIndex(p => Math.max(0, p - 1))}
+             disabled={currentIndex === 0}
+             className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-gray-500 hover:text-gray-900 disabled:opacity-30 transition-colors"
+           >
+             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+             Prev
+           </button>
+           <button 
+             onClick={() => setFlaggedQuestions(prev => ({ ...prev, [currentQuestion.id]: !prev[currentQuestion.id] }))}
+             className={`flex items-center gap-2 text-xs font-bold uppercase tracking-widest transition-colors ${flaggedQuestions[currentQuestion?.id] ? 'text-red-500' : 'text-gray-500 hover:text-gray-900'}`}
+           >
+             <svg className={`w-5 h-5 ${flaggedQuestions[currentQuestion?.id] ? 'fill-current' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" /></svg>
+             Flag
+           </button>
+        </div>
+
+        <div className="flex items-center gap-8">
+           <button 
+             onClick={() => setShowMobileNav(true)}
+             className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-gray-500 hover:text-gray-900 transition-colors lg:hidden"
+           >
+             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" /></svg>
+             Review
+           </button>
+           <button className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-gray-500 hover:text-gray-900 transition-colors hidden lg:flex">
+             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" /></svg>
+             Review
+           </button>
+           <button 
+             onClick={() => setCurrentIndex(p => Math.min(selectedQuestions.length - 1, p + 1))}
+             className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-gray-500 hover:text-gray-900 transition-colors"
+           >
+             Skip
+             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+           </button>
+           
+           {currentIndex < selectedQuestions.length - 1 ? (
+             <button 
+               onClick={() => setCurrentIndex(p => p + 1)}
+               className="px-8 py-3 bg-green-700 text-white font-bold rounded-lg uppercase tracking-widest hover:bg-green-800 transition-colors shadow-lg shadow-green-900/20"
+             >
+               Next Question
+             </button>
+           ) : (
+             <button 
                 onClick={handleSubmit} 
                 disabled={submitting} 
-                className="btn-primary w-full sm:w-auto disabled:opacity-70 flex items-center gap-2 bg-brand-secondary hover:bg-black shadow-none border-0"
-              >
-                {submitting ? 'Running Tests...' : 'Submit Solution'}
-              </button>
-            )}
-          </div>
+                className="px-8 py-3 bg-green-700 text-white font-bold rounded-lg uppercase tracking-widest hover:bg-green-800 transition-colors shadow-lg shadow-green-900/20 disabled:opacity-70"
+             >
+               {submitting ? 'Submitting...' : 'Complete Exam'}
+             </button>
+           )}
         </div>
-      </div>
+      </footer>
 
     </div>
   );

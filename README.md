@@ -1,4 +1,4 @@
-# 🎓 Quiz Sprint - Learning Platform
+# 🎓 CodeSprint - Learning Platform
 
 A comprehensive gamified learning platform built using the MERN stack with Supabase integration. Interactive quiz system where you can create, take, and manage quizzes with real-time tracking.
 
@@ -10,6 +10,9 @@ A comprehensive gamified learning platform built using the MERN stack with Supab
 ## 🚀 Features
 
 ### User Features
+- ✅ **New: Proctored Assessment Environment** - Fullscreen enforcement with auto-submission on tab-switch.
+- ✅ **New: Topic-Based Certifications** - Specialized exams for React, JS, Node, SQL, and more.
+- ✅ **New: Modern UI** - Horizontal card-based layout for both Practice and Certification portals.
 - ✅ JWT-based authentication with OTP support
 - ✅ Interactive quiz system with multiple categories
 - ✅ Progress tracking and analytics dashboard
@@ -29,25 +32,25 @@ A comprehensive gamified learning platform built using the MERN stack with Supab
 ## 🛠 Tech Stack
 
 **Frontend:**
-- React.js, React Router, Axios, Socket.IO Client, Tailwind  CSS.
+- React.js, Tailwind CSS, Framer Motion (for smooth transitions).
 
 **Backend:**
-- Node.js, Express.js, Supabase, JWT, Socket.IO, bcryptjs
+- Node.js, Express.js, **Supabase** (PostgreSQL), JWT, Socket.IO.
 
 ## 📂 Project Structure
 
 ```
 mern-quest/
-├── api/                    # Backend API
+├── api/                    # Backend API (Supabase Integration)
+│   ├── data/              # Seed data (Quizzes, Practices)
 │   ├── controllers/       # Business logic
-│   ├── middleware/        # Authentication
 │   ├── routes/           # Express routes
-│   └── server.js         # Main server file
+│   └── deduplicate.sql    # Data integrity script
 ├── web/                   # Frontend React app
 │   ├── src/
-│   │   ├── components/   # Reusable components
-│   │   ├── pages/        # Page components
-│   │   └── context/      # Auth context
+│   │   ├── components/   # Reusable UI components
+│   │   ├── pages/        # Quiz.js, Assessments.js, Practice.js
+│   │   └── context/      # Auth & Application State
 └── README.md
 ```
 
@@ -57,7 +60,7 @@ mern-quest/
 - Node.js (v14 or higher)
 - npm or yarn
 
-### Installation
+### Installation & Data Integrity
 
 1. **Clone the repository**
    ```bash
@@ -65,12 +68,20 @@ mern-quest/
    cd learn-mern
    ```
 
-2. **Install dependencies**
+2. **Clean & Seed Database** (Important for first-time setup)
+   ```bash
+   cd api
+   # Run deduplication to ensure unique entries
+   # (Execute deduplicate.sql in Supabase Console)
+   npm run seed
+   ```
+
+3. **Install dependencies**
    ```bash
    npm run install-all
    ```
 
-3. **Environment Setup**
+4. **Environment Setup**
    
    Create `.env` file in the `api/` directory:
    ```env
@@ -89,7 +100,7 @@ mern-quest/
    CLIENT_URL=http://localhost:3000
    ```
 
-4. **Start the application**
+5. **Start the application**
    ```bash
    # Start both frontend and backend
    npm run dev
@@ -108,26 +119,26 @@ mern-quest/
 
 ## 🎯 Key Features
 
-### Quiz System
-- Multiple choice questions with explanations
-- Category-based organization (React, Node.js, Express, MongoDB, etc.)
-- Difficulty levels (Easy, Medium, Hard)
-- Real-time scoring and feedback
-- Time-limited quizzes
+### 🛡️ Proctored Assessment Environment
+- **Security First**: Fullscreen enforcement with automatic submission if the user switches tabs or exits the window.
+- **Smart Header**: Real-time progress bar, question counter, and a precise countdown timer.
+- **Navigation Sidebar**: Interactive 5-column grid to jump between questions, with visual indicators for answered and flagged questions.
+- **Micro-interactions**: Smooth transitions and card-based options for a premium testing experience.
 
-### Gamification
-- Points system (10-20 points per question)
-- Level progression based on total points
-- Achievements and badges
-- Daily login streaks
-- Global leaderboard rankings
+### 📜 Certification Center
+- **Topic-Based Exams**: Standardized assessments for domains like **React**, **Javascript**, **Node.js**, **SQL**, and **Git**.
+- **Professional Layout**: Clean, horizontal certification cards providing clear visibility into question counts, XP rewards, and time limits.
+- **Deep Linking**: Direct access to specific certifications via URL parameters.
 
-### Admin Dashboard
-- Create, edit, delete quizzes and questions
-- Bulk import questions via CSV/JSON
-- Monitor active quiz sessions
-- View user statistics and analytics
-- Manage user accounts
+### 🎮 Gamification & Progress
+- **XP System**: Earn points based on question complexity (Easy: 10, Medium: 20, Hard: 30).
+- **Leveling**: Progress through levels as you master new technologies.
+- **Streaks & Leaderboard**: Stay motivated with daily streaks and compete on the global leaderboard.
+
+### 🛠 Admin & Management
+- **Dashboard**: Full control over quizzes, users, and real-time session monitoring.
+- **Bulk Import**: Rapidly scale your question bank via CSV/JSON imports.
+- **Data Integrity**: Built-in deduplication and unique constraint handling for Supabase/PostgreSQL.
 
 ## 🔒 Security
 
