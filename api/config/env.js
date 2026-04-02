@@ -6,5 +6,6 @@ module.exports = {
   SUPABASE_URL: process.env.SUPABASE_URL,
   SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY,
   JWT_SECRET: process.env.JWT_SECRET || 'fallback_secret_key_change_in_production',
-  FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:3000'
+  FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:3000',
+  EXECUTION_TIMEOUT_MS: process.env.EXECUTION_TIMEOUT_MS || 3000,
 };
