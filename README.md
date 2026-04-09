@@ -4,7 +4,7 @@ A comprehensive gamified learning platform built using the MERN stack with Supab
 
 ## 🔗 Live Links
 
-- **GitHub Repository**: [https://github.com/pavanchinchalpet/learn-mern](https://github.com/pavanchinchalpet/learn-mern)
+- **GitHub Repository**: [https://github.com/pavanchinchalpet/MERN-Quest](https://github.com/pavanchinchalpet/MERN-Quest)
 - **Live Demo**: [https://learn-mern-pied.vercel.app](https://learn-mern-pied.vercel.app)
 
 ## 🚀 Features
@@ -64,8 +64,8 @@ mern-quest/
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/pavanchinchalpet/learn-mern.git
-   cd learn-mern
+   git clone https://github.com/pavanchinchalpet/MERN-Quest.git
+   cd MERN-Quest
    ```
 
 2. **Clean & Seed Database** (Important for first-time setup)
@@ -161,4 +161,4 @@ This project is licensed under the MIT License.
 
 ---
 
-**Happy Learning! 🎮📚**
+**Happy hacking**
