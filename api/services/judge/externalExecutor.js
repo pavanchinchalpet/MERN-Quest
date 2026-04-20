@@ -2,25 +2,11 @@ const fs = require('fs/promises');
 const path = require('path');
 const { spawn } = require('child_process');
 const crypto = require('crypto');
+const fsSync = require('fs');
 const { normalizeTestCases } = require('./shared');
 const { buildJavaRunnerSource } = require('./javaRunnerSource');
 
 const JUDGE_ROOT = path.join(__dirname, '..', '..', '.judge');
-
-const PYTHON_CANDIDATES = [
-  { command: process.env.PYTHON_BIN, args: [] },
-  { command: 'python3', args: [] },
-  { command: 'python', args: [] },
-  { command: 'py', args: ['-3'] },
-].filter((item) => item.command);
-
-const JAVAC_CANDIDATES = [
-  { command: process.env.JAVAC_BIN || 'javac', args: [] },
-];
-
-const JAVA_CANDIDATES = [
-  { command: process.env.JAVA_BIN || 'java', args: [] },
-];
 
 const ensureDirectory = async (directoryPath) => {
   await fs.mkdir(directoryPath, { recursive: true });
@@ -35,6 +21,108 @@ const makeJobDirectory = async () => {
 const cleanupDirectory = async (directoryPath) => {
   await fs.rm(directoryPath, { recursive: true, force: true });
 };
+
+const isWindows = (platform = process.platform) => platform === 'win32';
+
+const commandExists = (commandPath) => {
+  if (!commandPath) {
+    return false;
+  }
+
+  try {
+    return fsSync.existsSync(commandPath);
+  } catch (error) {
+    return false;
+  }
+};
+
+const uniqueCandidates = (candidates) => {
+  const seen = new Set();
+
+  return candidates.filter((candidate) => {
+    const key = `${candidate.command}::${candidate.args.join(' ')}`;
+    if (seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
+  });
+};
+
+const uniqueStrings = (values) => {
+  const seen = new Set();
+
+  return values.filter((value) => {
+    if (seen.has(value)) {
+      return false;
+    }
+
+    seen.add(value);
+    return true;
+  });
+};
+
+const getJavaHomeCandidates = () => {
+  const javaHomes = [
+    process.env.JAVA_HOME,
+    'C:\\Program Files\\Java\\latest',
+    'C:\\Program Files\\Java\\jdk-21.0.10',
+    'C:\\Program Files\\Java\\jdk-21',
+    'C:\\Program Files\\Java\\jdk-17',
+    'C:\\Program Files\\Eclipse Adoptium\\jdk-21',
+    'C:\\Program Files\\Eclipse Adoptium\\jdk-17',
+  ].filter(Boolean);
+
+  return uniqueStrings(javaHomes.map((javaHome) => javaHome.trim())).filter(commandExists);
+};
+
+const buildJavaBinaryCandidates = ({ override, binaryName }) => {
+  const candidates = [];
+
+  if (override) {
+    candidates.push({ command: override, args: [] });
+  }
+
+  candidates.push({ command: binaryName, args: [] });
+
+  if (isWindows()) {
+    for (const javaHome of getJavaHomeCandidates()) {
+      const executableName = `${binaryName}.exe`;
+      const executablePath = path.join(javaHome, 'bin', executableName);
+      if (commandExists(executablePath)) {
+        candidates.push({ command: executablePath, args: [] });
+      }
+    }
+  }
+
+  return uniqueCandidates(candidates);
+};
+
+const getPythonCommand = ({
+  platform = process.platform,
+  override = process.env.PYTHON_BIN,
+} = {}) => {
+  if (override) {
+    return { command: override, args: [] };
+  }
+
+  if (isWindows(platform)) {
+    return { command: 'py', args: ['-3'] };
+  }
+
+  return { command: 'python3', args: [] };
+};
+
+const getJavacCandidates = () => buildJavaBinaryCandidates({
+  override: process.env.JAVAC_BIN,
+  binaryName: 'javac',
+});
+
+const getJavaCandidates = () => buildJavaBinaryCandidates({
+  override: process.env.JAVA_BIN,
+  binaryName: 'java',
+});
 
 const runProcess = (command, args, options = {}) => new Promise((resolve, reject) => {
   const child = spawn(command, args, {
@@ -94,7 +182,9 @@ const parseRunnerOutput = (stdout, stderr) => {
   try {
     return JSON.parse(stdout);
   } catch (error) {
-    throw new Error(`Judge runner returned invalid JSON. stderr: ${stderr || 'none'}`);
+    throw new Error(
+      `Judge runner returned invalid JSON. stdout: ${(stdout || 'none').trim()} stderr: ${(stderr || 'none').trim()}`
+    );
   }
 };
 
@@ -115,13 +205,14 @@ const executePython = async ({ code, testCases, timeout }) => {
   const normalizedTestCases = normalizeTestCases(testCases);
   const jobDirectory = await makeJobDirectory();
   const payloadPath = path.join(jobDirectory, 'payload.json');
+  const pythonRuntime = getPythonCommand();
 
   try {
     await fs.writeFile(payloadPath, JSON.stringify({ code, testCases: normalizedTestCases }, null, 2), 'utf8');
     const runnerPath = path.join(__dirname, 'pythonRunner.py');
 
     const execution = await runFirstAvailable(
-      PYTHON_CANDIDATES,
+      [pythonRuntime],
       () => [runnerPath, payloadPath],
       { cwd: jobDirectory, timeout }
     );
@@ -148,7 +239,9 @@ const executePython = async ({ code, testCases, timeout }) => {
         totalCount: normalizedTestCases.length,
         results: [],
         userLogs: [],
-        error: execution.stderr.trim() || 'Python runner failed',
+        error: execution.stderr.trim()
+          || execution.stdout.trim()
+          || `Python runner failed via '${pythonRuntime.command}'`,
       };
     }
 
@@ -173,14 +266,16 @@ const executeJava = async ({ code, testCases, timeout }) => {
   const normalizedTestCases = normalizeTestCases(testCases);
   const jobDirectory = await makeJobDirectory();
   const payloadPath = path.join(jobDirectory, 'payload.json');
-  const sourcePath = path.join(jobDirectory, 'Solution.java');
+  const sourcePath = path.join(jobDirectory, 'Main.java');
+  const javacCandidates = getJavacCandidates();
+  const javaCandidates = getJavaCandidates();
 
   try {
-    await fs.writeFile(payloadPath, JSON.stringify({ testCases: normalizedTestCases }, null, 2), 'utf8');
+    await fs.writeFile(payloadPath, JSON.stringify({ code, testCases: normalizedTestCases }, null, 2), 'utf8');
     await fs.writeFile(sourcePath, buildJavaRunnerSource(code), 'utf8');
 
     const compilation = await runFirstAvailable(
-      JAVAC_CANDIDATES,
+      javacCandidates,
       () => [sourcePath],
       { cwd: jobDirectory, timeout }
     );
@@ -212,8 +307,8 @@ const executeJava = async ({ code, testCases, timeout }) => {
     }
 
     const execution = await runFirstAvailable(
-      JAVA_CANDIDATES,
-      () => ['-cp', jobDirectory, 'Solution', payloadPath],
+      javaCandidates,
+      () => ['-cp', jobDirectory, 'Main', payloadPath],
       { cwd: jobDirectory, timeout }
     );
 
@@ -263,4 +358,10 @@ const executeJava = async ({ code, testCases, timeout }) => {
 module.exports = {
   executeJava,
   executePython,
+  __internal: {
+    getJavaCandidates,
+    getJavacCandidates,
+    getPythonCommand,
+    isWindows,
+  },
 };

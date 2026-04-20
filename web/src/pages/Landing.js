@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 
 const Landing = () => {
   return (
-    <div className="flex flex-col min-h-screen bg-white">
+    <div className="flex flex-col min-h-screen w-full bg-white overflow-x-hidden">
       {/* Top Navigation for Landing */}
       <header className="absolute top-0 w-full flex items-center justify-between px-6 sm:px-12 py-6 z-50">
         <div className="flex items-center gap-2">
@@ -31,7 +31,7 @@ const Landing = () => {
       </header>
 
       {/* Hero Section */}
-      <main className="flex-grow flex items-center pt-24 pb-16 px-6 sm:px-12 max-w-7xl mx-auto w-full relative">
+      <main className="flex-grow flex items-center pt-24 pb-16 px-6 sm:px-12 max-w-7xl mx-auto w-full relative overflow-hidden">
         <div className="absolute top-20 right-10 w-64 h-64 bg-brand-primary/10 rounded-full blur-[80px] -z-10 animate-pulse"></div>
         <div className="absolute bottom-20 left-10 w-72 h-72 bg-emerald-300/10 rounded-full blur-[100px] -z-10 animate-pulse" style={{ animationDelay: '1s' }}></div>
 
@@ -63,7 +63,7 @@ const Landing = () => {
             </div>
           </div>
 
-          <div className="relative hidden lg:block z-0 animate-float">
+          <div className="relative hidden lg:block z-0 animate-float overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-brand-primary/5 to-transparent rounded-[40px] border border-dark-border/50 transform rotate-3"></div>
             <div className="w-full aspect-[4/3] bg-white rounded-[40px] shadow-2xl overflow-hidden border border-dark-border relative p-10 flex flex-col justify-between">
               <div className="flex items-center justify-between mb-8">
@@ -117,7 +117,7 @@ const Landing = () => {
                 </div>
               </div>
 
-              <div className="absolute right-[-20px] bottom-10 w-40 h-40 bg-brand-primary/10 rounded-2xl transform rotate-12 backdrop-blur-3xl"></div>
+              <div className="absolute right-2 bottom-10 w-40 h-40 bg-brand-primary/10 rounded-2xl transform rotate-12 backdrop-blur-3xl"></div>
             </div>
           </div>
         </div>
