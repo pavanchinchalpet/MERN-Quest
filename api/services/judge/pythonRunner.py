@@ -60,6 +60,10 @@ def find_function_name(source):
 
 
 def main():
+    if len(sys.argv) < 2:
+        sys.stderr.write("Usage: pythonRunner.py <payload.json>\n")
+        sys.exit(1)
+
     payload_path = sys.argv[1]
     with open(payload_path, "r", encoding="utf-8") as handle:
         payload = json.load(handle)
