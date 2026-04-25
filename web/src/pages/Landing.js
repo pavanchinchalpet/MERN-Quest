@@ -125,16 +125,41 @@ const Landing = () => {
         </div>
       </main>
 
-      {/* Companies Section */}
+      {/* Learning Section */}
       <section className="border-t border-dark-border py-12 px-6 sm:px-12 bg-dark-surface/30">
         <div className="max-w-7xl mx-auto">
-          <p className="text-center text-sm font-semibold text-text-tertiary uppercase tracking-wider mb-8">
-            Trusted by developers at leading companies
+          <p className="text-center text-sm font-semibold text-text-tertiary uppercase tracking-wider mb-3">
+            Everything You Need To Grow
           </p>
-          <div className="flex flex-wrap justify-center gap-8 md:gap-16 opacity-60 grayscale hover:grayscale-0 transition-all duration-500">
-            {['Airbnb', 'Stripe', 'LinkedIn', 'Atlassian', 'Snap Inc.', 'DoorDash', 'PayPal'].map((company) => (
-              <div key={company} className="text-xl font-bold font-sans text-text-secondary flex items-center justify-center">
-                {company}
+          <h2 className="text-center text-3xl sm:text-4xl font-bold text-text-primary mb-10">
+            Learn coding with focused practice and real interview prep
+          </h2>
+
+          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+            {[
+              {
+                title: 'DSA Practice',
+                description: 'Strengthen arrays, strings, trees, graphs, and dynamic programming with structured problem sets.'
+              },
+              {
+                title: 'Mock Interviews',
+                description: 'Prepare for real rounds with timed challenges, coding assessments, and confidence-building practice.'
+              },
+              {
+                title: 'Track Progress',
+                description: 'Stay consistent with learning streaks, solved problems, and skill-based improvement over time.'
+              },
+              {
+                title: 'Job Readiness',
+                description: 'Build practical problem-solving ability that helps you perform better in tests and interviews.'
+              }
+            ].map((item) => (
+              <div
+                key={item.title}
+                className="glass-card p-6 h-full"
+              >
+                <h3 className="text-xl font-bold text-text-primary mb-3">{item.title}</h3>
+                <p className="text-text-secondary leading-relaxed">{item.description}</p>
               </div>
             ))}
           </div>

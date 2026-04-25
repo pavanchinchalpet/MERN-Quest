@@ -23,10 +23,14 @@ function AppShell() {
   const isLanding = location.pathname === '/';
   const hideNavbar = isAuth || isLanding;
 
+  const mainClassName = hideNavbar
+    ? 'flex-grow w-full'
+    : 'flex-grow flex flex-col w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-8';
+
   return (
     <div className="min-h-screen bg-dark-bg text-text-primary flex flex-col">
       {!hideNavbar && <Navbar />}
-      <main className={`flex-grow flex flex-col w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 ${hideNavbar ? '' : 'pt-20 pb-8'}`}>
+      <main className={mainClassName}>
         <Suspense
           fallback={
             <div className="flex-grow grid place-items-center">
