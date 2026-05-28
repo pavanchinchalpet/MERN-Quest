@@ -1,5 +1,6 @@
 const supabase = require('../config/supabaseClient');
 const { executeCode } = require('../services/executionService');
+const { generateLiveTrace } = require('../services/liveTraceService');
 
 // @desc    Get all coding practices
 // @route   GET /api/practices
@@ -70,6 +71,7 @@ const submitPractice = async (req, res, next) => {
     // 2. Execute code against test cases
     const executionLanguage = language || practice.category || 'javascript';
     const result = await executeCode(executionLanguage, code, practice.test_cases);
+    const liveTrace = generateLiveTrace({ practice, code });
 
     // 3. Record the submission if it's not a test run
     let submission = null;
@@ -123,6 +125,7 @@ const submitPractice = async (req, res, next) => {
         userLogs: result.userLogs,
         error: result.error || null,
         language: executionLanguage,
+        liveTrace,
         pointsEarned,
         submissionId: submission?.id
       }

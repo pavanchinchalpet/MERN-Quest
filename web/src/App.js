@@ -4,15 +4,16 @@ import { AuthProvider } from './context/AuthContext';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import LandingRedirect from './components/LandingRedirect';
+import Navbar from './components/Navbar';
+import ProtectedRoute from './components/ProtectedRoute';
+import AdminRoute from './components/AdminRoute';
+import { PageSpinner } from './components/PageState';
 
 const Home = lazy(() => import('./pages/Home'));
 const Quiz = lazy(() => import('./pages/Quiz'));
 const Profile = lazy(() => import('./pages/Profile'));
 const Leaderboard = lazy(() => import('./pages/Leaderboard'));
 const Admin = lazy(() => import('./pages/Admin'));
-const ProtectedRoute = lazy(() => import('./components/ProtectedRoute'));
-const AdminRoute = lazy(() => import('./components/AdminRoute'));
-const Navbar = lazy(() => import('./components/Navbar'));
 const Practice = lazy(() => import('./pages/Practice'));
 const Assessments = lazy(() => import('./pages/Assessments'));
 const PracticeWorkspace = lazy(() => import('./pages/PracticeWorkspace'));
@@ -33,9 +34,7 @@ function AppShell() {
       <main className={mainClassName}>
         <Suspense
           fallback={
-            <div className="flex-grow grid place-items-center">
-              <div className="h-10 w-10 animate-spin rounded-full border-4 border-dark-border border-t-brand-primary" />
-            </div>
+            <PageSpinner message={null} compact />
           }
         >
           <Routes>

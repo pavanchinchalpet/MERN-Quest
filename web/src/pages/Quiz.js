@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import api, { getErrorMessage, unwrapResponse } from '../services/api';
+import { PageError, PageSpinner } from '../components/PageState';
+import api, { fetchCached, getErrorMessage } from '../services/api';
 
 const Quiz = () => {
   const navigate = useNavigate();
@@ -21,23 +22,36 @@ const Quiz = () => {
   const [showMobileNav, setShowMobileNav] = useState(false);
 
   useEffect(() => {
+    let isMounted = true;
+
     const loadQuizCenter = async () => {
       try {
-        const [categoryResponse, questionResponse] = await Promise.all([
-          api.get('/quiz/categories'),
-          api.get('/quiz?limit=200')
+        const [categoryData, questionData] = await Promise.all([
+          fetchCached('/quiz/categories'),
+          fetchCached('/quiz?limit=200')
         ]);
 
-        setCategories(unwrapResponse(categoryResponse) || []);
-        setQuestions(unwrapResponse(questionResponse) || []);
+        if (!isMounted) {
+          return;
+        }
+
+        setCategories(categoryData || []);
+        setQuestions(questionData || []);
       } catch (err) {
-        setError(getErrorMessage(err, 'Unable to load practice modules'));
+        if (isMounted) {
+          setError(getErrorMessage(err, 'Unable to load practice modules'));
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
     loadQuizCenter();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const startQuiz = useCallback((categoryId) => {
@@ -79,11 +93,7 @@ const Quiz = () => {
 
   const handleReturnToDashboard = () => {
     setPhase('catalog');
-    // Clear the URL parameter so it doesn't trigger again
-    navigate('/assessments', { replace: true }); 
-    // Actually, 'assessments' is the list page. If they are on /quiz, 
-    // they should go back to /assessments or just clear the search.
-    // The user said "Return to dashboard" which usually means the list page in this UI.
+    navigate('/assessments', { replace: true });
   };
 
   const handleSubmit = useCallback(async () => {
@@ -195,8 +205,6 @@ const Quiz = () => {
 
   const visibleCategories = categoryCards.filter((category) => category.questionCount > 0);
 
-
-
   const formatTime = (seconds) => {
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
@@ -204,11 +212,11 @@ const Quiz = () => {
   };
 
   if (loading) {
-    return (
-      <div className="flex-grow flex items-center justify-center min-h-[70vh]">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-dark-border border-t-brand-primary" />
-      </div>
-    );
+    return <PageSpinner message="Loading exam center..." />;
+  }
+
+  if (error && phase === 'catalog') {
+    return <PageError message={error} onAction={() => window.location.reload()} />;
   }
 
   // --- CATALOG PHASE ---

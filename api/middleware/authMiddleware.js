@@ -1,17 +1,17 @@
 const jwt = require('jsonwebtoken');
 const env = require('../config/env');
 const supabase = require('../config/supabaseClient');
+const { ACCESS_COOKIE_NAME } = require('../utils/generateToken');
 
 const protect = async (req, res, next) => {
   let token;
 
-  // Read the JWT from the cookie
-  token = req.cookies.jwt;
+  token = req.cookies[ACCESS_COOKIE_NAME];
 
   if (token) {
     try {
       // Verify token
-      const decoded = jwt.verify(token, env.JWT_SECRET);
+      const decoded = jwt.verify(token, env.ACCESS_TOKEN_SECRET);
       
       // Get user from the database
       const { data: user, error } = await supabase
