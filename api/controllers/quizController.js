@@ -107,7 +107,7 @@ const getCategories = async (req, res, next) => {
 // @access  Private
 const submitQuiz = async (req, res, next) => {
   try {
-    const { answers, timeTaken } = req.body;
+    const { answers, timeTaken, quizId } = req.body;
     if (!answers || !Array.isArray(answers)) {
       res.status(400);
       throw new Error('Answers are required');
@@ -161,6 +161,7 @@ const submitQuiz = async (req, res, next) => {
     // Insert into quiz_scores 
     await supabase.from('quiz_scores').insert([{
       user_id: req.user.id,
+      quiz_id: quizId || null,
       score: score,
       total_questions: totalQuestions,
       correct_answers: correctAnswers,

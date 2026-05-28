@@ -1,62 +1,69 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import api, { unwrapResponse } from '../services/api';
+import { PageError, PageSpinner } from '../components/PageState';
+import { fetchCached, getErrorMessage } from '../services/api';
+import { PRACTICE_CATEGORIES } from '../utils/constants';
+import { AppIcon } from '../utils/icons';
 
-const categories = [
-  { id: 'all', name: 'All Practice', icon: '🎯' },
-  { 
-    id: 'dsa', 
-    name: 'DSA', 
-    icon: '📂',
-    subcategories: ['Arrays', 'Strings', 'HashMap', 'Trees', 'Graphs', 'DP']
-  },
-  { 
-    id: 'react', 
-    name: 'React', 
-    icon: '⚛️',
-    subcategories: ['Hooks', 'State Management', 'Components', 'Performance', 'Interview Questions']
-  },
-  { id: 'sql', name: 'SQL', icon: '🗄️', subcategories: ['Joins', 'Aggregation', 'Query Optimization', 'Indexes'] },
-  { id: 'python', name: 'Python', icon: '🐍', subcategories: ['Basics', 'Data Structures', 'Algorithms', 'Functions'] },
-  { id: 'java', name: 'Java', icon: '☕', subcategories: ['OOPs', 'Collections', 'Multithreading', 'Basics'] },
-];
+const normalizeValue = (value) => (value || '').toString().trim().toLowerCase();
 
 const Practice = () => {
   const [practices, setPractices] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [activeCategory, setActiveCategory] = useState('all');
   const [activeSubcategory, setActiveSubcategory] = useState('all');
 
   useEffect(() => {
-    const fetchPractices = async () => {
+    let isMounted = true;
+
+    const loadPractices = async () => {
       try {
-        const res = await api.get('/practices');
-        setPractices(unwrapResponse(res));
+        const data = await fetchCached('/practices');
+        if (isMounted) {
+          setPractices(Array.isArray(data) ? data : []);
+        }
       } catch (err) {
-        console.error(err);
+        if (isMounted) {
+          setError(getErrorMessage(err, 'Unable to load practice challenges'));
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
-    fetchPractices();
+
+    loadPractices();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
+  const currentCategory = useMemo(
+    () => PRACTICE_CATEGORIES.find((category) => category.id === activeCategory),
+    [activeCategory]
+  );
+
   const filteredPractices = useMemo(() => {
-    return practices.filter(p => {
-      const matchCategory = activeCategory === 'all' || p.category?.toLowerCase() === activeCategory.toLowerCase();
-      const matchSubcategory = activeSubcategory === 'all' || p.subcategory?.toLowerCase() === activeSubcategory.toLowerCase();
+    const selectedCategory = normalizeValue(activeCategory);
+    const selectedSubcategory = normalizeValue(activeSubcategory);
+
+    return practices.filter((practice) => {
+      const practiceCategory = normalizeValue(practice.category);
+      const practiceSubcategory = normalizeValue(practice.subcategory);
+      const matchCategory = selectedCategory === 'all' || practiceCategory === selectedCategory;
+      const matchSubcategory = selectedSubcategory === 'all' || practiceSubcategory === selectedSubcategory;
       return matchCategory && matchSubcategory;
     });
-  }, [practices, activeCategory, activeSubcategory]);
-
-  const currentCategoryData = categories.find(c => c.id === activeCategory);
+  }, [activeCategory, activeSubcategory, practices]);
 
   if (loading) {
-    return (
-      <div className="flex-grow flex items-center justify-center min-h-[50vh]">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-dark-border border-t-brand-primary" />
-      </div>
-    );
+    return <PageSpinner message="Loading practice tracks..." compact />;
+  }
+
+  if (error) {
+    return <PageError message={error} onAction={() => window.location.reload()} />;
   }
 
   return (
@@ -68,29 +75,27 @@ const Practice = () => {
         </p>
       </header>
 
-      {/* Category Navigation */}
       <div className="flex overflow-x-auto pb-4 gap-3 no-scrollbar mb-8">
-        {categories.map((cat) => (
+        {PRACTICE_CATEGORIES.map((category) => (
           <button
-            key={cat.id}
+            key={category.id}
             onClick={() => {
-              setActiveCategory(cat.id);
+              setActiveCategory(category.id);
               setActiveSubcategory('all');
             }}
             className={`flex items-center gap-2 px-5 py-3 rounded-xl font-bold transition-all whitespace-nowrap border-2 ${
-              activeCategory === cat.id
+              activeCategory === category.id
                 ? 'bg-brand-primary border-brand-primary text-white shadow-glow-primary'
                 : 'bg-white border-dark-border text-text-secondary hover:border-brand-primary/50'
             }`}
           >
-            <span>{cat.icon}</span>
-            {cat.name}
+            <AppIcon name={category.icon} className="h-4 w-4" />
+            {category.name}
           </button>
         ))}
       </div>
 
       <div className="grid lg:grid-cols-4 gap-8">
-        {/* Subcategories / Filters */}
         <aside className="lg:col-span-1">
           <div className="glass-panel p-6 sticky top-24">
             <h3 className="font-bold text-text-primary mb-4 flex items-center gap-2">
@@ -99,7 +104,7 @@ const Practice = () => {
               </svg>
               Filter by Topic
             </h3>
-            
+
             <div className="flex flex-wrap lg:flex-col gap-2">
               <button
                 onClick={() => setActiveSubcategory('all')}
@@ -111,29 +116,28 @@ const Practice = () => {
               >
                 All Topics
               </button>
-              
-              {currentCategoryData?.subcategories?.map(sub => (
+
+              {currentCategory?.subcategories?.map((subcategory) => (
                 <button
-                  key={sub}
-                  onClick={() => setActiveSubcategory(sub)}
+                  key={subcategory}
+                  onClick={() => setActiveSubcategory(subcategory)}
                   className={`text-left px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-                    activeSubcategory === sub
+                    activeSubcategory === subcategory
                       ? 'bg-brand-primary/10 text-brand-primary border-l-4 border-brand-primary'
                       : 'text-text-tertiary hover:bg-dark-surface hover:text-text-secondary'
                   }`}
                 >
-                  {sub}
+                  {subcategory}
                 </button>
               ))}
             </div>
 
-            {!currentCategoryData?.subcategories && (
+            {!currentCategory?.subcategories && (
               <p className="text-xs text-text-tertiary italic mt-4">Select a category to see specific topics.</p>
             )}
           </div>
         </aside>
 
-        {/* Challenges List */}
         <div className="lg:col-span-3">
           {filteredPractices.length > 0 ? (
             <div className="grid gap-4">
@@ -142,9 +146,11 @@ const Practice = () => {
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
                     <div className="flex flex-col md:flex-row items-center md:items-start gap-4 text-center md:text-left">
                       <div className={`h-12 w-12 rounded-xl flex items-center justify-center shrink-0 border-2 border-white shadow-sm ${
-                        item.difficulty === 'easy' ? 'bg-brand-primary/10 text-brand-primary' : 
-                        item.difficulty === 'medium' ? 'bg-brand-warning/10 text-brand-warning' : 
-                        'bg-brand-danger/10 text-brand-danger'
+                        item.difficulty === 'easy'
+                          ? 'bg-brand-primary/10 text-brand-primary'
+                          : item.difficulty === 'medium'
+                            ? 'bg-brand-warning/10 text-brand-warning'
+                            : 'bg-brand-danger/10 text-brand-danger'
                       }`}>
                         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
@@ -164,9 +170,11 @@ const Practice = () => {
                         <div className="mt-4 flex items-center gap-4 text-[10px] font-black uppercase tracking-widest text-text-tertiary">
                           <span className="flex items-center gap-1.5">
                             <span className={`h-2 w-2 rounded-full ${
-                              item.difficulty === 'easy' ? 'bg-brand-primary' : 
-                              item.difficulty === 'medium' ? 'bg-brand-warning' : 
-                              'bg-brand-danger'
+                              item.difficulty === 'easy'
+                                ? 'bg-brand-primary'
+                                : item.difficulty === 'medium'
+                                  ? 'bg-brand-warning'
+                                  : 'bg-brand-danger'
                             }`} />
                             {item.difficulty}
                           </span>
@@ -174,7 +182,9 @@ const Practice = () => {
                         </div>
                       </div>
                     </div>
-                    <Link to={`/practice/${item.id}`} className="w-full md:w-auto btn-primary py-3 px-8 text-xs font-black uppercase tracking-widest text-center shadow-lg shadow-brand-primary/10 hover:shadow-none transition-all">Solve Challenge</Link>
+                    <Link to={`/practice/${item.id}`} className="w-full md:w-auto btn-primary py-3 px-8 text-xs font-black uppercase tracking-widest text-center shadow-lg shadow-brand-primary/10 hover:shadow-none transition-all">
+                      Solve Challenge
+                    </Link>
                   </div>
                 </div>
               ))}
@@ -187,9 +197,12 @@ const Practice = () => {
                 </svg>
               </div>
               <h3 className="text-xl font-bold text-text-primary mb-2">No challenges found</h3>
-              <p className="text-text-secondary">We're still adding challenges for this category. Check back soon!</p>
-              <button 
-                onClick={() => { setActiveCategory('all'); setActiveSubcategory('all'); }}
+              <p className="text-text-secondary">We&apos;re still adding challenges for this category. Check back soon!</p>
+              <button
+                onClick={() => {
+                  setActiveCategory('all');
+                  setActiveSubcategory('all');
+                }}
                 className="mt-6 text-brand-primary font-bold hover:underline"
               >
                 Clear all filters

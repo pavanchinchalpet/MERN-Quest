@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import api, { getErrorMessage, unwrapResponse } from '../services/api';
+import { PageError, PageSpinner } from '../components/PageState';
+import { fetchCached, getErrorMessage } from '../services/api';
 
 const Home = () => {
   const { user } = useAuth();
@@ -12,25 +13,38 @@ const Home = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let isMounted = true;
+
     const loadDashboard = async () => {
       try {
-        const [statsResponse, achievementsResponse, leaderboardResponse] = await Promise.all([
-          api.get('/user/stats'),
-          api.get('/user/achievements'),
-          api.get('/user/leaderboard')
+        const [statsData, achievementsData, leaderboardData] = await Promise.all([
+          fetchCached('/user/stats'),
+          fetchCached('/user/achievements'),
+          fetchCached('/user/leaderboard')
         ]);
 
-        setStats(unwrapResponse(statsResponse));
-        setAchievements(unwrapResponse(achievementsResponse) || []);
-        setLeaderboard(unwrapResponse(leaderboardResponse) || []);
+        if (!isMounted) {
+          return;
+        }
+
+        setStats(statsData);
+        setAchievements(achievementsData || []);
+        setLeaderboard(leaderboardData || []);
       } catch (err) {
-        setError(getErrorMessage(err, 'Unable to load dashboard'));
+        if (isMounted) {
+          setError(getErrorMessage(err, 'Unable to load dashboard'));
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
     loadDashboard();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const currentRank = useMemo(() => {
@@ -39,26 +53,11 @@ const Home = () => {
   }, [leaderboard, user]);
 
   if (loading) {
-    return (
-      <div className="flex-grow flex items-center justify-center min-h-[70vh]">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-dark-border border-t-brand-primary" />
-      </div>
-    );
+    return <PageSpinner message="Loading dashboard..." />;
   }
 
   if (error) {
-    return (
-      <div className="w-full max-w-7xl mx-auto py-10">
-        <div className="glass-card p-6 border-brand-danger/30 bg-brand-danger/5 text-brand-danger">
-          <div className="flex items-center gap-3">
-            <svg className="w-6 h-6 text-brand-danger" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-            <p className="font-semibold">{error}</p>
-          </div>
-        </div>
-      </div>
-    );
+    return <PageError message={error} onAction={() => window.location.reload()} />;
   }
 
   const quickStats = [

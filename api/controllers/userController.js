@@ -46,16 +46,19 @@ const getStats = async (req, res, next) => {
 
     const { data: recentScores, error: scoreError } = await supabase
       .from('quiz_scores')
-      .select('id, score, correct_answers, total_questions, points_earned, created_at, quizzes(title, category_id)')
+      .select('id, quiz_id, score, correct_answers, total_questions, points_earned, created_at')
       .eq('user_id', req.user.id)
       .order('created_at', { ascending: false })
       .limit(5);
 
     if (scoreError) throw new Error(scoreError.message);
 
+    const totalQuizzes = recentScores.length;
+    const pointsEarnedThisWeek = recentScores.reduce((sum, score) => sum + (score.points_earned || 0), 0);
+
     const formattedScores = recentScores.map(score => ({
       id: score.id,
-      quizTitle: score.quizzes?.title || 'Quiz Attempt',
+      quizTitle: score.quiz_id ? 'Quiz Attempt' : 'Assessment Attempt',
       category: 'General', 
       score: score.score,
       correctAnswers: score.correct_answers,
@@ -70,8 +73,8 @@ const getStats = async (req, res, next) => {
         points: userStats?.points || 0,
         level: userStats?.level || 1,
         streak: userStats?.streak || 0,
-        totalQuizzes: recentScores.length,
-        pointsEarnedThisWeek: userStats?.points || 0,
+        totalQuizzes,
+        pointsEarnedThisWeek,
         recentScores: formattedScores
       }
     });

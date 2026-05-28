@@ -109,9 +109,7 @@ const quizHelpers = {
         quiz_category:quiz_categories(
           id,
           name,
-          description,
-          icon,
-          color
+          title
         )
       `)
       .eq("is_active", true);
@@ -145,9 +143,7 @@ const quizHelpers = {
         quiz_category:quiz_categories(
           id,
           name,
-          description,
-          icon,
-          color
+          title
         )
       `)
       .eq("id", quizId)
@@ -161,13 +157,7 @@ const quizHelpers = {
   GET QUIZ QUESTIONS
   */
   getQuizQuestions: async (quizId) => {
-
-    const client = supabase.getServiceClient() || supabase;
-
-    const { data, error } = await client
-      .from("quiz_questions")
-      .select("*")
-      .eq("quiz_id", quizId);
+    const { data, error } = await quizHelpers.getQuizById(quizId);
 
     return { data, error };
   },
@@ -182,7 +172,7 @@ const quizHelpers = {
 
     const { data, error } = await client
       .from("quiz_categories")
-      .select("id,name,description,icon,color");
+      .select("id,name,title,created_at");
 
     return { data, error };
   },
@@ -200,7 +190,7 @@ const quizHelpers = {
       const questionIds = answers.map(a => a.questionId);
 
       const { data: questions, error } = await client
-        .from("quiz_questions")
+        .from("quizzes")
         .select("*")
         .in("id", questionIds);
 
@@ -211,9 +201,13 @@ const quizHelpers = {
 
       questions.forEach(q => {
 
-        const userAnswer = answers.find(a => a.questionId === q.id);
+        const userAnswer = answers.find(a => String(a.questionId) === String(q.id));
 
-        if (userAnswer && userAnswer.answer === q.correct_answer) {
+        if (
+          userAnswer &&
+          String(userAnswer.selectedAnswer ?? userAnswer.answer).trim().toLowerCase() ===
+            String(q.answer).trim().toLowerCase()
+        ) {
           correctAnswers++;
           pointsEarned += q.points || 10;
         }
@@ -234,7 +228,6 @@ const quizHelpers = {
           total_questions: totalQuestions,
           correct_answers: correctAnswers,
           points_earned: pointsEarned,
-          answers: answers // Added missing JSON field
         })
         .select()
         .single();

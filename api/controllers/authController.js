@@ -1,7 +1,20 @@
 const supabase = require('../config/supabaseClient');
-const generateToken = require('../utils/generateToken');
+const env = require('../config/env');
+const jwt = require('jsonwebtoken');
 const { hashPassword, matchPassword } = require('../utils/passwordUtils');
+const { ACCESS_COOKIE_NAME, REFRESH_COOKIE_NAME, setAuthCookies, clearAuthCookies } = require('../utils/generateToken');
 const crypto = require('crypto');
+
+const buildUserResponse = (user) => ({
+  id: user.id,
+  username: user.username,
+  email: user.email,
+  name: user.name,
+  role: user.role,
+  avatar: user.avatar,
+  streak: user.streak,
+  last_login: user.last_login,
+});
 
 // @desc    Register a new user
 // @route   POST /api/auth/register
@@ -64,17 +77,11 @@ const registerUser = async (req, res, next) => {
     if (loginError) throw new Error(loginError.message);
 
     // 5. Generate token and return success
-    generateToken(res, user.id, user.role);
+    setAuthCookies(res, user.id, user.role);
 
     res.status(201).json({
       success: true,
-      data: {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        name: user.name,
-        role: user.role
-      }
+      data: buildUserResponse(user)
     });
 
   } catch (error) {
@@ -134,19 +141,11 @@ const loginUser = async (req, res, next) => {
       .eq('user_id', user.id);
 
     // 5. Generate JWT Cookie
-    generateToken(res, user.id, user.role);
+    setAuthCookies(res, user.id, user.role);
 
     res.json({
       success: true,
-      data: {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        avatar: user.avatar,
-        streak: user.streak
-      }
+      data: buildUserResponse(user)
     });
 
   } catch (error) {
@@ -159,16 +158,51 @@ const loginUser = async (req, res, next) => {
 // @access  Private
 const logoutUser = (req, res, next) => {
   try {
-    res.cookie('jwt', '', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-      expires: new Date(0),
-    });
+    clearAuthCookies(res);
 
     res.json({ success: true, message: 'Logged out successfully' });
   } catch(error) {
     next(error);
+  }
+};
+
+const refreshAccessToken = async (req, res, next) => {
+  try {
+    const refreshToken = req.cookies[REFRESH_COOKIE_NAME];
+
+    if (!refreshToken) {
+      res.status(401);
+      throw new Error('Refresh token missing');
+    }
+
+    const decoded = jwt.verify(refreshToken, env.REFRESH_TOKEN_SECRET);
+
+    if (decoded.type !== 'refresh') {
+      res.status(401);
+      throw new Error('Invalid refresh token');
+    }
+
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', decoded.userId)
+      .single();
+
+    if (error || !user) {
+      res.status(401);
+      throw new Error('Refresh token user not found');
+    }
+
+    setAuthCookies(res, user.id, user.role);
+
+    res.json({
+      success: true,
+      data: buildUserResponse(user),
+    });
+  } catch (error) {
+    clearAuthCookies(res);
+    res.status(401);
+    next(new Error('Refresh token expired or invalid'));
   }
 };
 
@@ -181,16 +215,7 @@ const getMe = async (req, res, next) => {
 
     res.json({
       success: true,
-      data: {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        name: user.name,
-        avatar: user.avatar,
-        role: user.role,
-        streak: user.streak,
-        last_login: user.last_login
-      }
+      data: buildUserResponse(user)
     });
   } catch (error) {
     next(error);
@@ -201,5 +226,6 @@ module.exports = {
   registerUser,
   loginUser,
   logoutUser,
+  refreshAccessToken,
   getMe
 };

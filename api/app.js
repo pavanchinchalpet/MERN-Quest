@@ -9,6 +9,8 @@ const { errorHandler, notFound } = require('./middleware/errorMiddleware');
 
 const app = express();
 
+app.set('trust proxy', env.TRUST_PROXY);
+
 app.use(helmet());
 app.use(xss());
 

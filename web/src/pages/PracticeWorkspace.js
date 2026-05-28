@@ -2,6 +2,10 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
 import api, { getErrorMessage, unwrapResponse } from '../services/api';
+import VisualizationBotPanel from '../components/VisualizationBotPanel';
+import { generateVisualization } from '../utils/visualization';
+import DSALiveTracerPanel from '../components/DSALiveTracerPanel';
+import { generateDsaTrace } from '../utils/dsaTracer';
 
 const PracticeWorkspace = () => {
   const { id } = useParams();
@@ -12,6 +16,10 @@ const PracticeWorkspace = () => {
   const [submitting, setSubmitting] = useState(false);
   const [testResults, setTestResults] = useState(null);
   const [language, setLanguage] = useState('javascript');
+  const [visualization, setVisualization] = useState(null);
+  const [dsaTrace, setDsaTrace] = useState(null);
+  const [showVisualization, setShowVisualization] = useState(true);
+  const [lastRunMeta, setLastRunMeta] = useState(null);
 
   const handleEditorChange = (value) => {
     setCode(value);
@@ -45,6 +53,27 @@ const PracticeWorkspace = () => {
         pointsEarned: result.pointsEarned
       });
 
+      setVisualization(
+        generateVisualization({
+          code,
+          problem,
+          result: {
+            status: result.status,
+            passed: result.passedCount,
+            total: result.totalCount,
+            userLogs: result.userLogs || [],
+          },
+          language,
+        })
+      );
+      setDsaTrace(result.liveTrace || generateDsaTrace(problem, code));
+      setLastRunMeta({
+        status: result.status,
+        passed: result.passedCount,
+        total: result.totalCount,
+        userLogs: result.userLogs || [],
+      });
+
       if (result.status === 'Accepted' && !isTest) {
         // Points already updated on backend
       }
@@ -57,6 +86,27 @@ const PracticeWorkspace = () => {
         passed: 0,
         total: problem.test_cases?.length || 0
       });
+
+      setVisualization(
+        generateVisualization({
+          code,
+          problem,
+          result: {
+            status: 'Error',
+            passed: 0,
+            total: problem.test_cases?.length || 0,
+            userLogs: [],
+          },
+          language,
+        })
+      );
+      setDsaTrace(generateDsaTrace(problem, code));
+      setLastRunMeta({
+        status: 'Error',
+        passed: 0,
+        total: problem.test_cases?.length || 0,
+        userLogs: [],
+      });
     } finally {
       setSubmitting(false);
     }
@@ -66,14 +116,43 @@ const PracticeWorkspace = () => {
   const handleRun = () => executeCode(true);
 
   useEffect(() => {
+    if (!problem) {
+      return;
+    }
+
+    setVisualization((current) =>
+      generateVisualization({
+        code,
+        problem,
+        result: lastRunMeta,
+        language,
+      })
+    );
+    if (problem.category?.toLowerCase() === 'dsa') {
+      setDsaTrace(generateDsaTrace(problem, code));
+    }
+  }, [code, language, problem, lastRunMeta]);
+
+  useEffect(() => {
     const fetchProblem = async () => {
       try {
         const res = await api.get(`/practices/${id}`);
         const data = unwrapResponse(res);
         setProblem(data);
         const initialLang = data.category?.toLowerCase() || 'javascript';
-        setLanguage(initialLang === 'dsa' ? 'javascript' : initialLang);
+        const resolvedLanguage = initialLang === 'dsa' ? 'javascript' : initialLang;
+        setLanguage(resolvedLanguage);
         setCode(data.starter_code || '');
+        setVisualization(
+          generateVisualization({
+            code: data.starter_code || '',
+            problem: data,
+            result: null,
+            language: resolvedLanguage,
+          })
+        );
+        setDsaTrace(generateDsaTrace(data, data.starter_code || ''));
+        setLastRunMeta(null);
       } catch (err) {
         console.error(getErrorMessage(err, 'Could not load the challenge'));
       } finally {
@@ -91,6 +170,8 @@ const PracticeWorkspace = () => {
       </div>
     );
   }
+
+  const isDsaProblem = problem?.category?.toLowerCase() === 'dsa';
 
   return (
     <div className="fixed inset-0 top-[64px] bg-white flex flex-col md:flex-row overflow-hidden animate-fade-in z-40">
@@ -137,7 +218,7 @@ const PracticeWorkspace = () => {
         </div>
       </div>
 
-      {/* Right Pane: Code Editor */}
+      {/* Right Pane: Code Editor + Visualization */}
       <div className="w-full md:w-[60%] flex flex-col bg-[#1e1e1e] relative">
         <div className="h-12 border-b border-white/10 flex items-center justify-between px-6 bg-[#252526] shrink-0">
           <div className="flex items-center gap-6">
@@ -159,6 +240,12 @@ const PracticeWorkspace = () => {
           </div>
           <div className="flex items-center gap-3">
              <button
+               onClick={() => setShowVisualization((current) => !current)}
+               className="px-4 py-1.5 bg-[#2d2d30] hover:bg-[#3a3a3d] text-white rounded text-xs font-bold transition-colors"
+             >
+               {showVisualization ? 'Hide Bot' : 'Show Bot'}
+             </button>
+             <button
                onClick={handleRun}
                disabled={submitting}
                className="px-4 py-1.5 bg-[#404040] hover:bg-[#505050] text-white rounded text-xs font-bold transition-colors disabled:opacity-50"
@@ -175,69 +262,94 @@ const PracticeWorkspace = () => {
           </div>
         </div>
 
-        <div className="flex-grow flex flex-col relative overflow-hidden">
-          <Editor
-            height="100%"
-            language={language}
-            theme="vs-dark"
-            value={code}
-            onChange={handleEditorChange}
-            options={{
-              fontSize: 14,
-              minimap: { enabled: false },
-              scrollBeyondLastLine: false,
-              automaticLayout: true,
-              padding: { top: 20 },
-              lineNumbers: 'on',
-              fontFamily: "'Fira Code', 'Cascadia Code', Consolas, monospace",
-              fontLigatures: true,
-            }}
-          />
+        <div className="flex-grow flex relative overflow-hidden">
+          <div className={`${showVisualization ? 'w-full xl:w-[62%]' : 'w-full'} flex flex-col relative overflow-hidden`}>
+            <Editor
+              height="100%"
+              language={language}
+              theme="vs-dark"
+              value={code}
+              onChange={handleEditorChange}
+              options={{
+                fontSize: 14,
+                minimap: { enabled: false },
+                scrollBeyondLastLine: false,
+                automaticLayout: true,
+                padding: { top: 20 },
+                lineNumbers: 'on',
+                fontFamily: "'Fira Code', 'Cascadia Code', Consolas, monospace",
+                fontLigatures: true,
+              }}
+            />
           
-          {/* Status Overlay / Results */}
-          {testResults && (
-            <div className="absolute bottom-0 left-0 right-0 bg-[#252526] border-t border-white/10 p-6 animate-slide-up z-50">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <h4 className={`text-sm font-bold uppercase tracking-widest ${
-                    testResults.status === 'Accepted' ? 'text-brand-primary' : 'text-brand-danger'
-                  }`}>
-                    {testResults.status}
-                  </h4>
-                  {testResults.runtime !== undefined && (
-                    <span className="text-[10px] font-bold text-white/30 uppercase">
-                      Runtime: {testResults.runtime}ms
-                    </span>
+            {/* Status Overlay / Results */}
+            {testResults && (
+              <div className="absolute bottom-0 left-0 right-0 bg-[#252526] border-t border-white/10 p-6 animate-slide-up z-50">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <h4 className={`text-sm font-bold uppercase tracking-widest ${
+                      testResults.status === 'Accepted' ? 'text-brand-primary' : 'text-brand-danger'
+                    }`}>
+                      {testResults.status}
+                    </h4>
+                    {testResults.runtime !== undefined && (
+                      <span className="text-[10px] font-bold text-white/30 uppercase">
+                        Runtime: {testResults.runtime}ms
+                      </span>
+                    )}
+                  </div>
+                  <button onClick={() => setTestResults(null)} className="text-white/30 hover:text-white">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                  </button>
+                </div>
+
+                <div className="flex flex-col md:flex-row gap-4 overflow-hidden max-h-[300px]">
+                  {/* Test Results */}
+                  <div className="flex-1 bg-black/30 rounded p-4 border border-white/5 overflow-y-auto">
+                     <div className="text-[10px] font-black text-white/30 uppercase mb-2 tracking-widest">Test Results</div>
+                     <div className="text-xs font-mono text-[#d4d4d4] whitespace-pre-wrap">{testResults.output}</div>
+                     <div className="mt-4 text-[10px] font-bold text-white/40 uppercase">{testResults.passed}/{testResults.total} test cases passed.</div>
+                  </div>
+
+                  {/* Console Logs */}
+                  {testResults.userLogs && testResults.userLogs.length > 0 && (
+                    <div className="flex-1 bg-black/30 rounded p-4 border border-white/5 overflow-y-auto border-l-4 border-l-brand-primary">
+                      <div className="text-[10px] font-black text-white/30 uppercase mb-2 tracking-widest">Console Output</div>
+                      <div className="text-xs font-mono text-brand-primary/80 space-y-1">
+                        {testResults.userLogs.map((log, i) => (
+                          <div key={i} className="border-b border-white/5 pb-1 last:border-0">{log}</div>
+                        ))}
+                      </div>
+                    </div>
                   )}
                 </div>
-                <button onClick={() => setTestResults(null)} className="text-white/30 hover:text-white">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                </button>
               </div>
+            )}
+          </div>
 
-              <div className="flex flex-col md:flex-row gap-4 overflow-hidden max-h-[300px]">
-                {/* Test Results */}
-                <div className="flex-1 bg-black/30 rounded p-4 border border-white/5 overflow-y-auto">
-                   <div className="text-[10px] font-black text-white/30 uppercase mb-2 tracking-widest">Test Results</div>
-                   <div className="text-xs font-mono text-[#d4d4d4] whitespace-pre-wrap">{testResults.output}</div>
-                   <div className="mt-4 text-[10px] font-bold text-white/40 uppercase">{testResults.passed}/{testResults.total} test cases passed.</div>
-                </div>
-
-                {/* Console Logs */}
-                {testResults.userLogs && testResults.userLogs.length > 0 && (
-                  <div className="flex-1 bg-black/30 rounded p-4 border border-white/5 overflow-y-auto border-l-4 border-l-brand-primary">
-                    <div className="text-[10px] font-black text-white/30 uppercase mb-2 tracking-widest">Console Output</div>
-                    <div className="text-xs font-mono text-brand-primary/80 space-y-1">
-                      {testResults.userLogs.map((log, i) => (
-                        <div key={i} className="border-b border-white/5 pb-1 last:border-0">{log}</div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
+          {showVisualization && (
+            <div className="hidden xl:block xl:w-[38%] min-w-[340px]">
+              {isDsaProblem ? (
+                <DSALiveTracerPanel trace={dsaTrace} loading={submitting} />
+              ) : (
+                <VisualizationBotPanel visualization={visualization} loading={submitting} />
+              )}
             </div>
           )}
         </div>
+
+        {showVisualization && (
+          <div className="xl:hidden absolute inset-x-0 bottom-0 top-16 z-40 border-t border-white/10">
+            <div className="absolute inset-0 bg-black/50" onClick={() => setShowVisualization(false)}></div>
+            <div className="absolute inset-x-0 bottom-0 top-6 sm:left-auto sm:right-0 sm:w-[420px] bg-[#111315] shadow-2xl">
+              {isDsaProblem ? (
+                <DSALiveTracerPanel trace={dsaTrace} loading={submitting} />
+              ) : (
+                <VisualizationBotPanel visualization={visualization} loading={submitting} />
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

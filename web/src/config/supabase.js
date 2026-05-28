@@ -96,7 +96,7 @@ export const db = {
       .eq('is_active', true);
 
     if (filters.category) {
-      query = query.eq('category', filters.category);
+      query = query.eq('category_id', filters.category);
     }
     if (filters.difficulty) {
       query = query.eq('difficulty', filters.difficulty);
@@ -134,7 +134,7 @@ export const db = {
       .from('quiz_scores')
       .select('*')
       .eq('user_id', userId)
-      .order('attempted_at', { ascending: false });
+      .order('created_at', { ascending: false });
     return { data, error };
   },
 
@@ -142,7 +142,7 @@ export const db = {
   getLeaderboard: async (limit = 10) => {
     const { data, error } = await supabase
       .from('users')
-      .select('username, points, level, streak, total_quizzes, correct_answers, total_answers')
+      .select('id, username, points, level, streak, avatar')
       .order('points', { ascending: false })
       .limit(limit);
     return { data, error };
@@ -150,15 +150,7 @@ export const db = {
 
   // Get user badges
   getUserBadges: async (userId) => {
-    const { data, error } = await supabase
-      .from('user_badges')
-      .select(`
-        *,
-        badges (*)
-      `)
-      .eq('user_id', userId)
-      .order('earned_at', { ascending: false });
-    return { data, error };
+    return { data: [], error: null };
   }
 };
 
