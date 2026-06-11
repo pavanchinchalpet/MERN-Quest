@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getErrorMessage } from '../services/api';
+import { API_BASE_URL, getErrorMessage } from '../services/api';
 
 const Register = () => {
   const navigate = useNavigate();
@@ -48,6 +48,10 @@ const Register = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleGoogleSignIn = () => {
+    window.location.href = `${API_BASE_URL}/auth/google?returnTo=${encodeURIComponent('/home')}`;
   };
 
   return (
@@ -182,6 +186,21 @@ const Register = () => {
                 ) : 'Create Account'}
               </button>
             </form>
+
+            <div className="mt-5">
+              <div className="relative flex items-center justify-center">
+                <div className="absolute inset-x-0 top-1/2 border-t border-dark-border" />
+                <span className="relative bg-white px-3 text-xs font-bold uppercase tracking-wider text-text-secondary">or</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleGoogleSignIn}
+                className="mt-5 flex w-full items-center justify-center gap-3 rounded border border-dark-border bg-white px-4 py-3 text-sm font-black uppercase tracking-wider text-text-primary shadow-sm transition-colors hover:bg-dark-surface disabled:opacity-70"
+              >
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-sm font-black text-brand-primary">G</span>
+                Continue with Google
+              </button>
+            </div>
 
             <div className="mt-6 pt-6 border-t border-dark-border text-center">
               <p className="text-sm font-medium text-text-secondary">
