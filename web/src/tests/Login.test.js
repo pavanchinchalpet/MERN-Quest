@@ -12,5 +12,6 @@ test('renders login page', () => {
     </AuthContext.Provider>
   );
 
-  expect(screen.getByText(/access dashboard/i)).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: /sign in to workspace/i })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: /continue with google/i })).toBeInTheDocument();
 });

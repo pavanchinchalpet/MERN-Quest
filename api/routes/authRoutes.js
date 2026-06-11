@@ -1,6 +1,14 @@
 const express = require('express');
 const { body } = require('express-validator');
-const { registerUser, loginUser, logoutUser, refreshAccessToken, getMe } = require('../controllers/authController');
+const {
+  registerUser,
+  loginUser,
+  startGoogleOAuth,
+  handleGoogleOAuthCallback,
+  logoutUser,
+  refreshAccessToken,
+  getMe,
+} = require('../controllers/authController');
 const protect = require('../middleware/authMiddleware');
 const validateRequest = require('../middleware/validateRequest'); // We will create this generic validation interceptor
 
@@ -28,6 +36,8 @@ router.post(
 
 router.post('/logout', protect, logoutUser);
 router.post('/refresh', refreshAccessToken);
+router.get('/google', startGoogleOAuth);
+router.get('/google/callback', handleGoogleOAuthCallback);
 router.get('/me', protect, getMe);
 router.get('/profile', protect, getMe);
 

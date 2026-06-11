@@ -12,5 +12,6 @@ test('renders register page', () => {
     </AuthContext.Provider>
   );
 
-  expect(screen.getByText(/create learner account/i)).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: /create an account/i })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: /continue with google/i })).toBeInTheDocument();
 });
